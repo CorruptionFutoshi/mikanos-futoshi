@@ -51,7 +51,7 @@
       alternatives:
         name: "{{ item }}"
         link: "/usr/bin/{{ item }}"
-        path: "/usr/bin/{{ item }} -14"
+        path: "/usr/bin/{{ item }}-14"
       with_items:
         - llvm-PerfectShuffle
         - llvm-ar
