@@ -1,0 +1,147 @@
+# ansible is open source automation tool of infrastructure construction
+---
+# specify hosts of playbook target.
+-hosts: all
+ tasks:
+   - name: ensure development tools are at the latest version
+     # become means use sudo 
+     become: yes
+     # use apt package manager
+     apt:
+       # list of install packages
+       name:
+         - build-essential
+         - llvm-14-dev
+         - lld-14
+         - clang-14
+         - nasm
+         - acpica-tools
+         - uuid-dev
+         - qemu-system-x86
+         - qemu-utils
+         - xauth
+         - unzip
+         - python3-distutils
+         - ca-certificates
+       # install latest version
+       state: latest
+       # not install recommends packages
+       install_recommends: no
+
+    - name: check whether qemu-system-gui exists
+      # confirm qemu-system-gui package is exist
+      command: dpkg-query --show qemu-system-gui
+      # continue task if command is failed
+      failed_when: False
+      # continue task regardless of result of command 
+      changed_when: False
+      # register result of command to variable qemu_gui_result 
+      register: qemu_gui_result
+
+    - name: install qemu gui package if exists
+      become: yes
+      apt: name=qemu-system-gui state=latest install_recommends=no
+      # cofirm conditions of command based on last result of command
+      when: qemu_gui_result.rc == 0
+    
+      # llvm is a software that provide common basis of programming language
+    - name: set llvm 14 as default
+      become: yes
+      # configuration of all llvm tools in with_items
+      alternatives:
+        name: "{{ item }}"
+        link: "/usr/bin/{{ item }}"
+        path: "/usr/bin/{{ item}} -14"
+      with_items:
+        - llvm-PerfectShuffle
+        - llvm-ar
+        - llvm-as
+        - llvm-bcanalyzer
+        - llvm-cat
+        - llvm-cfi-verify
+        - llvm-config
+        - llvm-cov
+        - llvm-c-test
+        - llvm-cvtres
+        - llvm-cxxdump
+        - llvm-cxxfilt
+        - llvm-diff
+        - llvm-dis
+        - llvm-dlltool
+        - llvm-dwarfdump
+        - llvm-dwp
+        - llvm-exegesis
+        - llvm-extract
+        - llvm-lib
+        - llvm-link
+        - llvm-lto
+        - llvm-lto2
+        - llvm-mc
+        - llvm-mca
+        - llvm-modextract
+        - llvm-mt
+        - llvm-nm
+        - llvm-objcopy
+        - llvm-objdump
+        - llvm-opt-report
+        - llvm-pdbutil
+        - llvm-profdata
+        - llvm-ranlib
+        - llvm-rc
+        - llvm-readelf
+        - llvm-readobj
+        - llvm-rtdyld
+        - llvm-size
+        - llvm-split
+        - llvm-stress
+        - llvm-strings
+        - llvm-strip
+        - llvm-symbolizer
+        - llvm-tblgen
+        - llvm-undname
+        - llvm-xray
+        - ld.lld
+        - lld-link
+        - clang
+        - clang++
+        - clang-cpp
+
+    - name: clone EDK II repository      
+      git:
+        repo: "https://github.com/tianocore/edk2.git"
+        dest: "{{ ansible_env.HOME }}/edk2"
+        version: "edk2-stable202208"
+
+    - name: build EDK II base tools
+      # build by make command
+      make:
+        # directory where build
+        chdir: "{{ ansible_env.HOME }}/edk2/BaseTools/Source/C"
+
+    - name: download standard libraries
+      # download archive file and extract 
+      unarchive:
+        # this tar.gz file contains builded standard libraries
+        src: "https://github.com/uchan-nos/mikanos-build/releases/download/v2.0/x86_64-elf.tar.gz"
+        dest: "{{ ansible_env.HOME }}/osbook/devenv"
+        # download from remote source
+        remote_src: yes
+
+    - name: configure display variable if WSL1
+      # change or add row in file
+      lineinfile:
+        path: "{{ ansible_env.Home }}/.profile"
+        # reqular expression to search.^ means head of row
+        regexp: "^export DISPLAY="
+        # changed row
+        line: "export DISPLAY=:0"
+      # condition of this command.it means environmental variables 'DISPLAY' and 'WSL_INTEROP' is not exist && 'WSLEW' is exist
+      when: "'DISPLAY' not in ansible_env and 'WSLENV' in ansible_env and 'WSL_INTEROP' not in ansible_env"
+
+    - name: configure display variable if WSL2
+      lineinfile:
+        path: "{{ ansible_env.Home }}/.profile"
+        regexp: "^export DISPLAY="
+        # awk... means search row that contain "nameserver" and output second field(maybe IP adress) from /etc/resolv.conf and not output error message
+        line: "export DISPLAY=$(awk '/nameserver / {print $2; exit}' /etc/resolv.conf 2>/dev/null):0"
+      when: "'DISPLAY' not in ansible_env and 'WSL_INTEROP' in ansible_env"
