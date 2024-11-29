@@ -1,33 +1,33 @@
 # ansible is open source automation tool of infrastructure construction
 ---
 # specify hosts of playbook target.
--hosts: all
- tasks:
-   - name: ensure development tools are at the latest version
-     # become means use sudo 
-     become: yes
-     # use apt package manager
-     apt:
-       # list of install packages
-       name:
-         - build-essential
-         - llvm-14-dev
-         - lld-14
-         - clang-14
-         - nasm
-         - acpica-tools
-         - uuid-dev
-         - qemu-system-x86
-         - qemu-utils
-         - xauth
-         - unzip
-         - python3-distutils
-         - ca-certificates
-       # install latest version
-       state: latest
-       # not install recommends packages
-       install_recommends: no
-
+- hosts: all
+  tasks:    
+    - name: ensure development tools are at the latest version
+      # become means use sudo 
+      become: yes
+      # use apt package manager
+      apt:
+        # list of install packages
+        name:
+          - build-essential
+          - llvm-14-dev
+          - lld-14
+          - clang-14
+          - nasm
+          - acpica-tools
+          - uuid-dev
+          - qemu-system-x86
+          - qemu-utils
+          - xauth
+          - unzip
+          - python3-distutils
+          - ca-certificates
+        # install latest version
+        state: latest
+        # not install recommends packages
+        install_recommends: no
+        
     - name: check whether qemu-system-gui exists
       # confirm qemu-system-gui package is exist
       command: dpkg-query --show qemu-system-gui
@@ -43,7 +43,7 @@
       apt: name=qemu-system-gui state=latest install_recommends=no
       # cofirm conditions of command based on last result of command
       when: qemu_gui_result.rc == 0
-    
+
       # llvm is a software that provide common basis of programming language
     - name: set llvm 14 as default
       become: yes
@@ -51,7 +51,7 @@
       alternatives:
         name: "{{ item }}"
         link: "/usr/bin/{{ item }}"
-        path: "/usr/bin/{{ item}} -14"
+        path: "/usr/bin/{{ item }} -14"
       with_items:
         - llvm-PerfectShuffle
         - llvm-ar
