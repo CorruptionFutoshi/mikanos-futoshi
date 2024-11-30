@@ -123,7 +123,7 @@
       unarchive:
         # this tar.gz file contains builded standard libraries
         src: "https://github.com/uchan-nos/mikanos-build/releases/download/v2.0/x86_64-elf.tar.gz"
-        dest: "{{ ansible_env.HOME }}/osbook/devenv"
+        dest: "{{ ansible_env.HOME }}/mikanos-futoshi/devenv"
         # download from remote source
         remote_src: yes
 
