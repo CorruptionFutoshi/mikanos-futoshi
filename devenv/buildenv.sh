@@ -2,7 +2,8 @@ BASEDIR="$HOME/mikanos-futoshi/devenv/x86_64-elf"
 EDK2DIR="$HOME/edk2"
 
 # !($BASEDIR is directory?) -d option means check target is directory or not
-if [! -d $BASEDIR]
+# it is important that create space between [ and code in sh file
+if [ ! -d $BASEDIR ]
 then
 	echo "$BASEDIR is not exist"
 	echo "download following files manually, and extract them to $(dirname $BASEDIR)"
