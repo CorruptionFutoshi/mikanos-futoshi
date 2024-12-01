@@ -1,4 +1,4 @@
-# this is called shebang.it means this script is executed be /bin/sh.
+# this is called shebang. it means this script is executed by /bin/sh.
 # -e means if error has occur, script is end. -u means if use undefined variable, script is end. 
 #!/bin/sh -eu
 
