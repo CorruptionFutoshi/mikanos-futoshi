@@ -49,7 +49,7 @@ const CHAR16* GetMemoryTypeUnicode(EFI_MEMORY_TYPE type){
 		case EfiBootServicesCode: return L"EfiBootServicesCode";
 		case EfiBootServicesData: return L"EfiBootServicesData";
 		case EfiRuntimeServicesCode: return L"EfiRuntimeServicesCode";
-		case EfiRuntimeServicesData: return L"EfiRuntimeServicesData"
+		case EfiRuntimeServicesData: return L"EfiRuntimeServicesData";
 		case EfiConventionalMemory: return L"EfiConventionalMemory";
 		case EfiUnusableMemory: return L"EfiUnusableMemory";
 		case EfiACPIReclaimMemory: return L"EfiACPIReclaimMemory";
@@ -82,7 +82,7 @@ EFI_STATUS SaveMemoryMap(struct MemoryMap* map, EFI_FILE_PROTOCOL* file){
 	int i;
 
 	for(iter = (EFI_PHYSICAL_ADDRESS)map->bufferptr, i = 0;
- 	    iter < (EFI_PHYSICAL_ADDRESS)map->bufferptr + map_>map_size;
+ 	    iter < (EFI_PHYSICAL_ADDRESS)map->bufferptr + map->map_size;
 	    iter += map->descriptor_size, i ++){
 		EFI_MEMORY_DESCRIPTOR* descptr = (EFI_MEMORY_DESCRIPTOR*) iter;
 		// AsciiSPrint() write third parameter to second parameter size of char[] specified by first parameter
@@ -117,7 +117,7 @@ EFI_STATUS OpenRootDir(EFI_HANDLE image_handle, EFI_FILE_PROTOCOL** rootptrptr){
 		NULL,
 		EFI_OPEN_PROTOCOL_BY_HANDLE_PROTOCOL);
 	
-	gBs->OpenProtocol(
+	gBS->OpenProtocol(
 		loaded_imageptr->DeviceHandle,
 		&gEfiSimpleFileSystemProtocolGuid,
 		(VOID**)&fsptr,
@@ -155,7 +155,7 @@ EFI_STATUS EFIAPI UefiMain(
 		EFI_FILE_MODE_READ | EFI_FILE_MODE_WRITE | EFI_FILE_MODE_CREATE, 0);
 
 	SaveMemoryMap(&memmap, memmap_fileptr);
-	memmap_file->Close(memmap_fileptr);
+	memmap_fileptr->Close(memmap_fileptr);
 
 	Print(L"All done\n");
 
