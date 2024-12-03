@@ -6,6 +6,7 @@
 #include <Protocol/SimpleFileSystem.h>
 #include <Protocol/DiskIo2.h>
 #include <Protocol/BlockIo.h>
+#include <Guid/FileInfo.h>
 
 struct MemoryMap {
 	// represent first get memory size.
@@ -137,7 +138,8 @@ EFI_STATUS EFIAPI UefiMain(
 		EFI_HANDLE image_handle,
 		EFI_SYSTEM_TABLE* system_table){
 	Print(L"Saiko no Egao de Kirinukeruyo\n");
-	
+
+	// save memory map to file start	
 	CHAR8 memmap_buf[4096 * 4];
 	struct MemoryMap memmap = {sizeof(memmap_buf), memmap_buf, 0, 0, 0, 0};
 	GetMemoryMap(&memmap);
@@ -156,6 +158,42 @@ EFI_STATUS EFIAPI UefiMain(
 
 	SaveMemoryMap(&memmap, memmap_fileptr);
 	memmap_fileptr->Close(memmap_fileptr);
+	// save memory map to file end
+
+	// read kernel start
+	EFI_FILE_PROTOCOL* kernel_fileptr;
+	root_dirptr->Open(root_dirptr, &kernel_fileptr, L"\\kernel.elf", EFI_FILE_MODE_READ,0);
+
+	// EFI_FILE_PROTOCOL.GetInfo() set EFI_FILE_INFO to fourth parameter. but last field of EFI_FILE_INFO type is filename[], and default is empty. so add 12 CHAR16, \ k e r n e l . e l f + null character 
+	UINTN file_info_size = sizeof(EFI_FILE_INFO) + sizeof(CHAR16) * 12;
+	UINT8 file_info_buffer[file_info_size];
+	kernel_fileptr->GetInfo(kernel_fileptr, &gEfiFileInfoGuid, &file_info_size, file_info_buffer);
+
+	EFI_FILE_INFO* file_infoptr=(EFI_FILE_INFO*)file_info_buffer;
+	UINTN kernel_file_size = file_infoptr->FileSize;
+
+	EFI_PHYSICAL_ADDRESS kernel_base_addr = 0x110000;
+	// first parameter as way of allocate memory, second parameter as type of memory area, third parameter as size, fourth parameter as pointer of allocated memory area. third parameter is number of page. in UEFI, 1 page equall 4KiB. fourth parameter wont change beacause AllocateAddress mode.
+	gBS->AllocatePages(
+			AllocateAddress, EfiLoaderData,
+	 		(kernel_file_size + 0xfff) / 0x1000, &kernel_base_addr);
+	// first parameter as place read, second parameter as size of read, third parameter is place write
+	kernel_fileptr->Read(kernel_fileptr, &kernel_file_size, (VOID*)kernel_base_addr);
+	// %0lx become 110000, because %0lx only output number, not prefix 
+	Print(L"Kernel: 0x%0lx (%lu bytes)\n", kernel_base_addr, kernel_file_size);
+	// read kernel end
+	
+	GetMemoryMap(&memmap);
+	gBS->ExitBootServices(image_handle, memmap.map_key);
+
+	// * of "*(UINT64" is dereference operator. because it is not with declaration. the reason 24 is that kernel.elf is elf for 64 bit, so entry point address starts after 24 bytes. in 64 bit architecture, memory address reoresent 64bit.
+	UINT64 entry_addr = *(UINT64*)(kernel_base_addr + 24);
+
+	// this is type prototype. definition of c language method
+	typedef void EntryPointType(void);
+	EntryPointType* entry_point = (EntryPointType*)entry_addr;
+	Print(L"korekara kernel yobidasi");
+	entry_point();
 
 	Print(L"All done\n");
 
