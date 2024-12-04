@@ -9,6 +9,9 @@
 #include <Protocol/BlockIo.h>
 #include <Guid/FileInfo.h>
 
+#include "frame_buffer_config.hpp"
+
+
 struct MemoryMap {
 	// represent first get memory size.
 	UINTN buffer_size;
@@ -341,13 +344,34 @@ EFI_STATUS EFIAPI UefiMain(
 	}
 
 	// * of "*(UINT64" is dereference operator. because it is not with declaration. the reason 24 is that kernel.elf is elf for 64 bit, so entry point address starts after 24 bytes. in 64 bit architecture, memory address reoresent 64bit.
+	// data that offset 24 byte of kernel.elf is address of main enry point. not main entry point 
 	UINT64 entry_addr = *(UINT64*)(kernel_base_addr + 24);
 
+	struct FrameBufferConfig config = {
+		(UINT8*)gop->Mode->FrameBufferBase,
+		gop->Mode->Info->PixelsPerScanLine,
+		gop->Mode->Info->HorizontalResolution,
+		gop->Mode->Info->VerticalResolution,
+		0
+	};
+
+	switch (gop->Mode->Info->PixelFormat) {
+		case PixelRedGreenBlueReserved8BitPerColor:
+			config.pixel_format = kPixelRGBResv8BitPerColor;
+			break;
+		case PixelBlueGreenRedReserved8BitPerColor:
+			config.pixel_format = kPixelBGRResv8BitPerColor;
+			break;
+		default:
+			Print(L"Unimplemented pixel format: %d\n", gop->Mode->Info->PixelFormat);
+			Halt();
+	}
+
 	// this is type prototype. definition of c language method
-	typedef void EntryPointType(UINT64, UINT64);
+	typedef void EntryPointType(const struct FrameBufferConfig*);
 	EntryPointType* entry_point = (EntryPointType*)entry_addr;
 	Print(L"korekara kernel yobidasi");
-	entry_point(gop->Mode->FrameBufferBase, gop->Mode->FrameBufferSize);
+	entry_point(&config);
 
 	Print(L"All done\n");
 
