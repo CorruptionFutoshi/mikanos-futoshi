@@ -1,0 +1,1 @@
+/home/vboxuser/mikanos-futoshi/kernel/elf.hpp
