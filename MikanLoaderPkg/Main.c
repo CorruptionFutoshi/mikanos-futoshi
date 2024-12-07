@@ -398,7 +398,9 @@ EFI_STATUS EFIAPI UefiMain(
 		Print(L"failed to get memory map: %r\n", status);	
 		Halt();
 	}
-
+	
+	// Print method change memorymap, so below ExitBootServices is failed
+	// Print(L"memmap.map_key:%llx\n", memmap.map_key);
 	status = gBS->ExitBootServices(image_handle, memmap.map_key);
 
 	if(EFI_ERROR(status)){
@@ -436,7 +438,7 @@ EFI_STATUS EFIAPI UefiMain(
 	// this is type prototype. definition of c language method
 	typedef void EntryPointType(const struct FrameBufferConfig*);
 	EntryPointType* entry_point = (EntryPointType*)entry_addr;
-	// because of this Print method, despite of not running(BootService is already exit), memory changed, and cant load kernel in below
+	// after exit bootservices, using Print method that is one of bootservices cause freeze 
 	// Print(L"korekara kernel yobidasi");
 	entry_point(&config);
 
