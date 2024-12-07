@@ -2,56 +2,8 @@
 #include <cstddef>
 
 #include "frame_buffer_config.hpp"
-
-struct PixelColor {
-	uint8_t r, g, b;
-};
-
-class PixelWriter {
-	public:
-		// : config_{config} means config of parameter set to config_ of field
-		PixelWriter(const FrameBufferConfig& config) : config_{config}{
-		}
-	
-	// ~{class name} means destructor	
-	virtual ~PixelWriter() = default;
-	// {method} = 0 means this method is pure virtual function. it is method that have no contents for override
-	virtual void Write(int x, int y, const PixelColor& c) = 0;
-
-	protected:
-		uint8_t* PixelAt(int x, int y) {
-			// in this format, 1 pixel is 4 byte so 4* pixel_position
-			return config_.frame_bufferptr + 4 * (config_.pixels_per_scan_line * y + x);
-		}
-
-	private:
-		const FrameBufferConfig& config_;
-};
-
-class RGBResv8BitPerColorPixelWriter : public PixelWriter {
-	public:
-		// using {super class name}:{super class name} means constructor of super class
-		using PixelWriter::PixelWriter;
-
-		virtual void Write(int x, int y, const PixelColor& c) override {
-			auto p = PixelAt(x,y);
-			p[0] = c.r;
-			p[1] = c.g;
-			p[2] = c.b;
-		}
-};
-
-class BGRResv8BitPerColorPixelWriter : public PixelWriter {
-	public:
-		using PixelWriter::PixelWriter;
-
-		virtual void Write(int x, int y, const PixelColor& c) override {
-			auto p = PixelAt(x,y);
-			p[0] = c.b;
-			p[1] = c.g;
-			p[2] = c.r;
-		}
-};
+#include "graphics.hpp"
+#include "font.hpp"
 
 // this is called placement new. it allocate memory area specified by parameter.
 void* operator new(size_t size, void* buf){
@@ -85,8 +37,14 @@ extern "C" void KernelMain(const FrameBufferConfig& frame_buffer_config){
 
 	for (int x =0; x < 200; ++x) {
 		for (int y = 0; y < 100; ++y) {
-			pixel_writerptr->Write(100 + x, 100 + y, {0, 255, 0});
+			pixel_writerptr->Write(x, y, {0, 255, 0});
 		}
+	}
+
+	int i = 0;
+	
+	for (char c = '!'; c <= '~'; ++c, ++i) {
+		WriteAscii(*pixel_writerptr, 8 * i, 50, c, {0, 0, 0});
 	}
 
 	while (1) __asm__("hlt");

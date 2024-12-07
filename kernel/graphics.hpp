@@ -1,0 +1,43 @@
+#pragma once
+
+#include "frame_buffer_config.hpp"
+
+struct PixelColor {
+	uint8_t r, g, b;
+};
+
+class PixelWriter {
+	public:
+		// : config_{config} means config of parameter set to config_ of field
+		PixelWriter(const FrameBufferConfig& config) : config_{config}{
+		}
+	
+	// ~{class name} means destructor	
+	virtual ~PixelWriter() = default;
+	// {method} = 0 means this method is pure virtual function. it is method that have no contents for override
+	virtual void Write(int x, int y, const PixelColor& c) = 0;
+
+	protected:
+		uint8_t* PixelAt(int x, int y) {
+			// in this format, 1 pixel is 4 byte so 4* pixel_position
+			return config_.frame_bufferptr + 4 * (config_.pixels_per_scan_line * y + x);
+		}
+
+	private:
+		const FrameBufferConfig& config_;
+};
+
+class RGBResv8BitPerColorPixelWriter : public PixelWriter {
+	public:
+		// using {super class name}:{super class name} means constructor of super class
+		using PixelWriter::PixelWriter;
+
+		virtual void Write(int x, int y, const PixelColor& c) override;
+};
+
+class BGRResv8BitPerColorPixelWriter : public PixelWriter {
+	public:
+		using PixelWriter::PixelWriter;
+		virtual void Write(int x, int y, const PixelColor& c) override;
+};
+

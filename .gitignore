@@ -1,3 +1,7 @@
 x86_64-elf/
-.o
+*.o
 kernel.elf
+hankaku.txt
+hankaku.bin
+tools/
+*.d
