@@ -3,6 +3,7 @@
 #include <Library/UefiBootServicesTableLib.h>
 #include <Library/PrintLib.h>
 #include <Library/MemoryAllocationLib.h>
+#include <Library/BaseMemoryLib.h>
 #include <Protocol/LoadedImage.h>
 #include <Protocol/SimpleFileSystem.h>
 #include <Protocol/DiskIo2.h>
@@ -35,7 +36,6 @@ EFI_STATUS GetMemoryMap(struct MemoryMap* map){
 
 	// indeed, we dont need to set both map_size and buffer_size fields in this program. to describe first get memory, declare buffer_size, and to describe actually be used memory, declare memory_size. like this program, wont use buffer_size field later, dont need buffer_size field.
 	map->map_size = map->buffer_size;
-
 	// gBS->GetMemoryMap will get memorymap and write in memory area specified by second parameter and write information in each parameters
 	return gBS->GetMemoryMap(
 			&map->map_size,
@@ -183,22 +183,22 @@ EFI_STATUS OpenGOP(
 }
 
 // write const to say in this method string of result never change dynamically.
-const CHAR16* GetPixelFormatUnicode(EFI_GRAPHICS_PIXEL_FORMAT format){
-	switch(format){
-		case PixelRedGreenBlueReserved8BitPerColor:
-			return L"PixelRedGrennBlueReserved8BitPerColor";
-		case PixelBlueGreenRedReserved8BitPerColor:
-			return L"PixelBlueGreenRedReserved8BitPerColor";
-		case PixelBitMask:
-			return L"PixelBitMask";
-		case PixelBltOnly:
-			return L"PixelBltOnly";
-		case PixelFormatMax:
-			return L"PixelFormatMax";
-		default:
-			return L"InvalidPixelFormat";
-	}
-}
+// const CHAR16* GetPixelFormatUnicode(EFI_GRAPHICS_PIXEL_FORMAT format){
+//	switch(format){
+//		case PixelRedGreenBlueReserved8BitPerColor:
+//			return L"PixelRedGrennBlueReserved8BitPerColor";
+//		case PixelBlueGreenRedReserved8BitPerColor:
+//			return L"PixelBlueGreenRedReserved8BitPerColor";
+//		case PixelBitMask:
+//			return L"PixelBitMask";
+//		case PixelBltOnly:
+//			return L"PixelBltOnly";
+//		case PixelFormatMax:
+//			return L"PixelFormatMax";
+//		default:
+//			return L"InvalidPixelFormat";
+//	}
+// }
 
 void Halt(void){
 	// in same row, dont need {}
@@ -215,8 +215,8 @@ void CalcLoadAddressRange(Elf64_Ehdr* ehdrptr, UINT64* firstptr, UINT64* lastptr
 	// declare i as Elf64_Half (not as UINT64) because e_phnum field declare as uint16_t( equal Elf64_Half) 
 	for (Elf64_Half i = 0; i < ehdrptr->e_phnum; i++){
 		if (phdrptr[i].p_type != PT_LOAD) continue;
-		*first = MIN(*first, phdrptr[i].p_vaddr);
-		*last = MAX(*last, phdrptr[i].p_vaddr + phdrptr[i].p_memsz);
+		*firstptr = MIN(*firstptr, phdrptr[i].p_vaddr);
+		*lastptr = MAX(*lastptr, phdrptr[i].p_vaddr + phdrptr[i].p_memsz);
 	}
 }
 
@@ -229,12 +229,12 @@ void CopyLoadSegments(Elf64_Ehdr* ehdrptr) {
 		// base point of p_offset is head of Elf file, equal ehdrptr
 		UINT64 segmentptr = (UINT64)ehdrptr + phdrptr[i].p_offset;
 		// VOID means all like var in Java. first parameter represent place paste, second parameter represent plase be copied, third parameter represent size
-		CopyMem((VOID*)phdrptr[i].p_vaddr, (VOID*)segmentptr, phdr[i].p_filesz);
+		CopyMem((VOID*)phdrptr[i].p_vaddr, (VOID*)segmentptr, phdrptr[i].p_filesz);
 
 		// often memsz become bigger than filesz
 		UINTN remain_bytes = phdrptr[i].p_memsz - phdrptr[i].p_filesz;
 		// this method fill specified area up with specified value. first parameter represent place, second parameter represent size, third parameter represent value that be used to fill up. fill up with 0 to initialize memory area before be used in runtime
-		SetMem((VOID*)(phdrptr[i].p_vaddr + phdr[i].p_filesz), remain_bytes, 0);
+		SetMem((VOID*)(phdrptr[i].p_vaddr + phdrptr[i].p_filesz), remain_bytes, 0);
 	}	
 
 }
@@ -301,21 +301,21 @@ EFI_STATUS EFIAPI UefiMain(
 		Halt();	
 	}
 
-	Print(L"Resolution: %ux%u, Pixel Format: %s, %u pixels/line\n",
-			gop->Mode->Info->HorizontalResolution,
-			gop->Mode->Info->VerticalResolution,
-			GetPixelFormatUnicode(gop->Mode->Info->PixelFormat),
-			gop->Mode->Info->PixelsPerScanLine);
-	Print(L"Frame Buffer: 0x%0lx - 0x%0lx, Size: %lu bytes\n",
-			gop->Mode->FrameBufferBase,
-			gop->Mode->FrameBufferBase + gop->Mode->FrameBufferSize,
-			gop->Mode->FrameBufferSize);
+	// Print(L"Resolution: %ux%u, Pixel Format: %s, %u pixels/line\n",
+	//		gop->Mode->Info->HorizontalResolution,
+	//		gop->Mode->Info->VerticalResolution,
+	//		GetPixelFormatUnicode(gop->Mode->Info->PixelFormat),
+	//		gop->Mode->Info->PixelsPerScanLine);
+	// Print(L"Frame Buffer: 0x%0lx - 0x%0lx, Size: %lu bytes\n",
+	//		gop->Mode->FrameBufferBase,
+	//		gop->Mode->FrameBufferBase + gop->Mode->FrameBufferSize,
+	//		gop->Mode->FrameBufferSize);
 
 	// declare as UINT8* because gop->Mode->FrameBufferSize is per byte
-	UINT8* frame_buffer = (UINT8*)gop->Mode->FrameBufferBase;
-	for (UINTN i = 0; i < gop->Mode->FrameBufferSize; ++i){
-		frame_buffer[i] = 255;
-	}
+	// UINT8* frame_buffer = (UINT8*)gop->Mode->FrameBufferBase;
+	// for (UINTN i = 0; i < gop->Mode->FrameBufferSize; ++i){
+	//	frame_buffer[i] = 255;
+	// }
 
 	// read kernel start
 	EFI_FILE_PROTOCOL* kernel_fileptr;
@@ -353,7 +353,7 @@ EFI_STATUS EFIAPI UefiMain(
 
 	VOID* kernel_bufferptr;
 	// this method allocate memory area like AllocatePages, difference is that per byte, not page, and cant specify pointer of allocated memory area
-	status => gBS->AllocatePool(EfiLoaderData, kernel_file_size, &kernel_bufferptr);
+	status = gBS->AllocatePool(EfiLoaderData, kernel_file_size, &kernel_bufferptr);
 
 	if(EFI_ERROR(status)){
 		Print(L"failed to allocate pool: %r\n", status);
@@ -372,7 +372,7 @@ EFI_STATUS EFIAPI UefiMain(
 	
 	Elf64_Ehdr* kernel_ehdrptr = (Elf64_Ehdr*)kernel_bufferptr;
 	UINT64 kernel_first_addr, kernel_last_addr;
-	CalcLoadAddressRange(kernel_ehdr, &kernel_first_addr, &kernel_last_addr);
+	CalcLoadAddressRange(kernel_ehdrptr, &kernel_first_addr, &kernel_last_addr);
 
 	UINTN num_pages = (kernel_last_addr - kernel_first_addr + 0xfff) / 0x1000;
 	status = gBS->AllocatePages(AllocateAddress, EfiLoaderData, num_pages, &kernel_first_addr);
@@ -382,7 +382,7 @@ EFI_STATUS EFIAPI UefiMain(
 		Halt();
 	}
 
-	CopyLoadSegments(kernel_ehdr);
+	CopyLoadSegments(kernel_ehdrptr);
 	Print(L"Kernel: 0x%0lx - 0x%0lx\n", kernel_first_addr, kernel_last_addr);
 
 	status = gBS->FreePool(kernel_bufferptr);
@@ -391,7 +391,7 @@ EFI_STATUS EFIAPI UefiMain(
 		Print(L"failed to free pool: %r\n", status);	
 		Halt();
 	}
-
+	
 	status = GetMemoryMap(&memmap);
 	
 	if (EFI_ERROR(status)){
@@ -401,12 +401,12 @@ EFI_STATUS EFIAPI UefiMain(
 
 	status = gBS->ExitBootServices(image_handle, memmap.map_key);
 
-	if (EFI_ERROR(status)){
+	if(EFI_ERROR(status)){
 		Print(L"failed to exit boot service: %r\n", status);	
 		Halt();
 	}
 
-	// * of "*(UINT64" is dereference operator. because it is not with declaration. the reason 24 is that kernel.elf is elf for 64 bit, so entry point address starts after 24 bytes. in 64 bit architecture, memory address reoresent 64bit.
+// * of "*(UINT64" is dereference operator. because it is not with declaration. the reason 24 is that kernel.elf is elf for 64 bit, so entry point address starts after 24 bytes. in 64 bit architecture, memory address reoresent 64bit.
 	// data that offset 24 byte of kernel.elf is address of main enry point. not main entry point 
 	// UINT64 entry_addr = *(UINT64*)(kernel_base_addr + 24);
 
@@ -428,14 +428,16 @@ EFI_STATUS EFIAPI UefiMain(
 			config.pixel_format = kPixelBGRResv8BitPerColor;
 			break;
 		default:
-			Print(L"Unimplemented pixel format: %d\n", gop->Mode->Info->PixelFormat);
+			// cant run Print method after exit boot service
+			// Print(L"Unimplemented pixel format: %d\n", gop->Mode->Info->PixelFormat);
 			Halt();
 	}
-
+	
 	// this is type prototype. definition of c language method
 	typedef void EntryPointType(const struct FrameBufferConfig*);
 	EntryPointType* entry_point = (EntryPointType*)entry_addr;
-	Print(L"korekara kernel yobidasi");
+	// because of this Print method, despite of not running(BootService is already exit), memory changed, and cant load kernel in below
+	// Print(L"korekara kernel yobidasi");
 	entry_point(&config);
 
 	Print(L"All done\n");

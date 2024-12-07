@@ -31,7 +31,7 @@ class PixelWriter {
 class RGBResv8BitPerColorPixelWriter : public PixelWriter {
 	public:
 		// using {super class name}:{super class name} means constructor of super class
-		using PixelWriter:PixelWriter;
+		using PixelWriter::PixelWriter;
 
 		virtual void Write(int x, int y, const PixelColor& c) override {
 			auto p = PixelAt(x,y);
@@ -43,7 +43,7 @@ class RGBResv8BitPerColorPixelWriter : public PixelWriter {
 
 class BGRResv8BitPerColorPixelWriter : public PixelWriter {
 	public:
-		using PixelWriter:PixelWriter;
+		using PixelWriter::PixelWriter;
 
 		virtual void Write(int x, int y, const PixelColor& c) override {
 			auto p = PixelAt(x,y);
@@ -67,12 +67,12 @@ char pixel_writer_buf[sizeof(RGBResv8BitPerColorPixelWriter)];
 PixelWriter* pixel_writerptr;
 
 extern "C" void KernelMain(const FrameBufferConfig& frame_buffer_config){
-	switch(frame_buffer_cpnfig.pixel_format) {
+	switch(frame_buffer_config.pixel_format) {
 		case kPixelRGBResv8BitPerColor:
 			// new operator seems to require two parameter, but size_t is not need. new calcurate size of type automatically. so it is enough to set parameter buffer. {frame_buffer_config} is required by constructor. {} is uniform initialization
 			pixel_writerptr = new(pixel_writer_buf)RGBResv8BitPerColorPixelWriter{frame_buffer_config};
 			break;
-		case kPixelBGRResv8bitPerColor:
+		case kPixelBGRResv8BitPerColor:
 			pixel_writerptr = new(pixel_writer_buf)BGRResv8BitPerColorPixelWriter{frame_buffer_config};
 			break;
 	}
