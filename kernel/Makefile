@@ -1,5 +1,5 @@
 TARGET = kernel.elf
-OBJS = main.o graphics.o font.o hankaku.o
+OBJS = main.o graphics.o font.o hankaku.o newlib_support.o console.o
 # OBJS:.o=.d means change .o file to .d file. notdir means remove path. addprefix . means add '.' to each file. dir means directory path like './'. join means combine like ./ + main.d => ./.main.d
 DEPENDS = $(join $(dir $(OBJS)),$(addprefix .,$(notdir $(OBJS:.o=.d))))
 
@@ -17,7 +17,7 @@ clean:
 
 # write Makefile as prereq to build when Makefile update
 kernel.elf: $(OBJS) Makefile
-	ld.lld $(LDFLAGS) -o kernel.elf $(OBJS)
+	ld.lld $(LDFLAGS) -o kernel.elf $(OBJS) -lc
 
 # $< means first prereq
 %.o: %.cpp Makefile
@@ -30,6 +30,14 @@ kernel.elf: $(OBJS) Makefile
 	clang++ $(CPPFLAGS) $(CXXFLAGS) -MM $< > $@
 	$(eval OBJ = $(<:.cpp=.o))
 	sed --in-place 's|$(notdir $(OBJ))|$(OBJ)|' $@
+
+%.o: %.c Makefile
+	clang $(CPPFLAGS) $(CFLAGS) -c $<
+
+.%.d: %.c
+	clang $(CPPFLAGS) $(CFLAGS) -MM $< > $@
+	$(eval OBJ = $(<:.c=.o))
+	sed --in-place 's|$(notdir $(OBJ))|$(OBJ)' $@
 
 hankaku.bin: hankaku.txt
 	../tools/makefont.py -o $@ $<

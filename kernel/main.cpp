@@ -1,9 +1,11 @@
 #include <cstdint>
 #include <cstddef>
+#include <cstdio>
 
 #include "frame_buffer_config.hpp"
 #include "graphics.hpp"
 #include "font.hpp"
+#include "console.hpp"
 
 // this is called placement new. it allocate memory area specified by parameter.
 void* operator new(size_t size, void* buf){
@@ -17,6 +19,26 @@ void operator delete(void* obj) noexcept {
 // in c++, char is 1 byte. so memory area of array of char that have n contents equalls memory area of n byte 
 char pixel_writer_buf[sizeof(RGBResv8BitPerColorPixelWriter)];
 PixelWriter* pixel_writerptr;
+
+char console_buf[sizeof(Console)];
+Console* consoleptr;
+
+// ... means variable-length parameters
+int printk(const char* format, ...) {
+	// variable store variable-length parameters
+	va_list ap;
+	int result;
+	char s[1024];
+
+	// va_start() method represent proccess before using variable-length parameters
+	va_start(ap, format);
+	result = vsprintf(s, format, ap);
+	// va_end() method represent process after using variable-length parameters
+	va_end(ap);
+	
+	consoleptr->PutString(s);
+	return result;
+}
 
 extern "C" void KernelMain(const FrameBufferConfig& frame_buffer_config){
 	switch(frame_buffer_config.pixel_format) {
@@ -35,17 +57,13 @@ extern "C" void KernelMain(const FrameBufferConfig& frame_buffer_config){
 		}
 	}
 
-	for (int x =0; x < 200; ++x) {
-		for (int y = 0; y < 100; ++y) {
-			pixel_writerptr->Write(x, y, {0, 255, 0});
-		}
+	consoleptr = new(console_buf) Console{*pixel_writerptr, {0, 0, 0}, {255, 255, 255}};
+
+	for (int i = 0; i < 27; ++i) {
+		printk("printk: %d\n", i);
 	}
 
-	int i = 0;
-	
-	for (char c = '!'; c <= '~'; ++c, ++i) {
-		WriteAscii(*pixel_writerptr, 8 * i, 50, c, {0, 0, 0});
-	}
+	WriteString(*pixel_writerptr, 0, 66, "Saiko_no_Egao de Kirinukeruyo", {0, 0, 255});
 
 	while (1) __asm__("hlt");
 }
