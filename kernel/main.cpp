@@ -17,6 +17,8 @@
 #include "usb/classdriver/mouse.hpp"
 #include "usb/xhci/xhci.hpp"
 #include "usb/xhci/trb.hpp"
+#include "interrupt.hpp"
+#include "asmfunc.h"
 
 const PixelColor kDesktopBGColor{213, 203, 198};
 const PixelColor kDesktopFGColor{81, 55, 67};
@@ -86,6 +88,18 @@ void SwitchEhciToXhci(const pci::Function& xhc_func) {
 	Log(kDebug, "SwitchEhciToXhci: SS = %02, xHCI = %02x\n", superspeed_ports, ehcitoxhci_ports);
 }
 
+// write __attribute__((interrupt)) to tell compiler that this is interrupt handler.
+__attribute__((interrupt))
+void IntHandlerXHCI(InterruptFrame* frame) {
+	while (xhc->PrimaryEventRing()->HasFront()) {
+		if (auto err = ProcessEvent(*xhc)) {
+			Log(kError, "Error while ProcessEvent: %s at %s:%d\n",
+			    err.Name(), err.File(), err.Line());
+		}
+	}
+	NotifyEndOfInterrupt();
+}
+
 extern "C" void KernelMain(const FrameBufferConfig& frame_buffer_config){
 	switch(frame_buffer_config.pixel_format) {
 		case kPixelRGBResv8BitPerColor:
@@ -142,6 +156,17 @@ extern "C" void KernelMain(const FrameBufferConfig& frame_buffer_config){
 		Log(kInfo, "xHC has been found: %d.%d.%d\n", xhc_funcptr->bus, xhc_funcptr->device, xhc_funcptr->function);
 	}
 
+	const uint16_t cs = GetCS();
+	// reinterpret_cast<uint64_t>({method}) is address of method.
+	SetIDTEntry(idt[InterruptVector::kXHCI], MakeIDTAttr(DescriptorType::kInterruptGate, 0), 
+				reinterpret_cast<uint64_t>(IntHandlerXHCI), cs);
+	LoadIDT(sizeof(idt) - 1, reinterpret_cast<uintptr_t>(&idt[0]));
+
+	const uint8_t bsp_local_apic_id = *reinterpret_cast<const uint32_t*>(0xfee00020) >> 24;
+	pci::ConfigureMSIFixedDestination(
+			*xhc_funcptr, bsp_local_apic_id, 
+			pci::MSITriggerMode::kLevel, pci::MSIDeliveryMode::kFixed, InterruptVector::kXHCI, 0);
+
 	// in bar0 there is a mmio address 
 	const WithError<uint64_t> xhc_bar = pci::ReadBar(*xhc_funcptr, 0);
 	Log(kDebug, "ReadBar: %s\n", xhc_bar.error.Name());
@@ -165,6 +190,11 @@ extern "C" void KernelMain(const FrameBufferConfig& frame_buffer_config){
 	Log(kInfo, "xHC starting\n");
 	xhc.Run();
 
+	// align xhc of global variable to local variable xhc's address. 
+	::xhc = &xhc;
+	// sti is Set Interrupt Flag. it activaate interrupt.
+	__asm__("sti");
+
 	usb::HIDMouseDriver::default_observer = MouseObserver;
 
 	for (int i = 1; i <=xhc.MaxPorts(); ++i) {
@@ -177,12 +207,6 @@ extern "C" void KernelMain(const FrameBufferConfig& frame_buffer_config){
 				Log(kError, "failed to configure port: %s at %s:%d\n", err.Name(), err.File(), err.Line());
 				continue;
 			}
-		}
-	}
-
-	while (1) {
-		if (auto err = ProcessEvent(xhc)) {
-			Log(kError, "Error while ProcessEvent: %s at %d\n", err.Name(), err.File(), err.Line());
 		}
 	}
 

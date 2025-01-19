@@ -87,6 +87,73 @@ namespace {
 
 		return MAKE_ERROR(Error::kSuccess);
 	}
+
+	MSICapability ReadMSICapability(const Function& func, uint8_t cap_addr) {
+		MSICapability msi_cap{};
+
+		// MSICapability is in PCI configuration space, so we can Read data with ReadConfReg(). PCI configuration space, specifically offset 40~FF, because space of before offset 40 is determind. 
+		msi_cap.header.data = ReadConfReg(func, cap_addr);
+		// i don't know why we can get messageaddress by Read 0x38. solved. cap_addr is not 0x34, this is value in offset 0x34 of PCI configuration space.
+		msi_cap.msg_addr = ReadConfReg(func, cap_addr + 4);
+		
+		uint8_t msg_data_addr = cap_addr + 8;
+		if (msg_cap.header.bits.addr_64_capable) {
+			msi_cap.msg_upper_addr = ReadConfReg(func, cap_addr + 8);
+			msg_data_addr = cap_addr + 12;
+		}
+
+		msi_cap.msg_data = ReadConfReg(func, msg_data_addr);
+
+		if (msi_cap.header.bits.per_vector_mask_capable) {
+			msi_cap.mask_bits = ReadConfReg(func, msg_data_addr + 4);
+			msi_cap.pending_bits = ReadConfReg(func, msg_data_addr + 8);
+		}
+
+		return msi_cap;
+	}
+
+	void WriteMSICapability(const Function& func, uint8_t cap_addr, const MSICapability& msi_cap) {
+		WriteConfReg(func, cap_addr, msi_cap.header.data);
+		WriteConfReg(func, cap_addr + 4, msi_cap.msg_addr);
+
+		uint8_t msg_data_addr = cap_addr + 8;
+		if (msi_cap.header.bits.addr_64_capable) {
+			WriteConfReg(func, cap_addr + 8, msi_cap.msg_upper_addr);
+			msg_data_addr = cap_addr + 12;
+		}
+
+		WriteConfReg(func, msg_data_addr, msi_cap.msg_data);
+
+		if (msi_cap.header.bits.per_vector_mask_capable) {
+			WriteConfReg(func, msg_data_addr + 4, msi_cap.mask_bits);
+			WriteConfReg(func, msg_data_addr + 8, msi_cap.pending_bits);
+		}
+	}
+
+	Error ConfigureMSIRegister(const Function& func, uint8_t cap_addr, uint32_t msg_addr, uint32_t msg_data,
+		       	unsigned int num_vector_exponent) {
+		auto msi_cap = ReadMSICapability(func, cap_addr);
+
+		// num_vector_expont maybe represent number of interrupt vector -1. 
+		// multi_msg_capable represent number of message(vector). so in this point, compare require number with indeed possible number.
+		if (msi_cap.header.bits.multi_msg_capable <= num_vector_exponent) {
+			msi_cap.header.bits.multi_msg_enable =msi_cap.header.bits.multi_msg_capable;
+		} else {
+			msi_cap.header.bits.multi_msg_enable = num_vector_exponent;
+		}
+
+		msi_cap.header.bits.msi_enable = 1;
+		msi_cap.msg_addr = msg_addr;
+		msi_cap.msg_data = msg_data;
+
+		WriteMSICapability(func, cap_addr, msi_cap);
+		return MAKE_ERROR(Error::kSuccess);
+	}
+
+	Error ConfigureMSIXRegister(const Function& func, uint8_t cap_addr, uint32_t msg_addr, uint32_t msg_data,
+			unsigned int num_vector_exponent) {
+		return MAKE_ERROR(Error::kNotImplemented);
+	}
 }
 
 // namespace to publish
@@ -195,5 +262,48 @@ namespace pci {
 		// this bar is 64bit bar. and "ReadConfReg()" only get 1 bar. so we should get next bar and add up them.
 		const auto bar_upper = ReadConfReg(func, addr + 4);
 		return {bar | (static_cast<uint64_t>(bar_upper) << 32), MAKE_ERROR(Error::kSuccess)};
+	}
+
+	CapabilityHeader ReadCapabilityHeader(const Function& func, uint8_t addr) {
+		CapabilityHeader header;
+		// i don't know whe "pci::" is written
+		header.data = pci::ReadConfReg(func, addr);
+		return header;
+	}
+
+	Error ConfigureMSI(const Function& func, uint32_t msg_addr, uint32_t msg_data, 
+			unsigned int num_vector_exponent) {
+		uint8_t cap_addr = ReadConfReg(func, 0x34) & 0xffu;
+		uint8_t msi_cap_addr = 0, msix_cap_addr = 0;
+
+		// use while to check all capability register to find MSIcapability register
+		while (cap_addr !=0) {
+			auto header = ReadCapabilityHeader(func, cap_addr);
+			if (header.bits.cap_id == kCapabilityMSI) {
+				msi_cap_addr = cap_addr;
+			} else if (header.bits.cap_id == kCapabilityMSIX) {
+				msix_cap_addr = cap_addr;
+			}
+			cap_addr = header.bits.next_ptr;
+		}
+
+		if (msi_cap_addr) {
+			return ConfigureMSIRegister(func, msi_cap_addr, msg_addr, msg_data, num_vector_exponent);
+		} else if (msix_cap_addr) {
+			return ConfigureMSIXRegister(func, msix_cap_addr, msg_addr, msg_data, num_vector_exponent);
+		}
+
+		return MAKE_ERROR(Error::kNoPCIMSI);
+	}
+
+	Error ConfigureMSIFixedDestination(const Function& func, uint8_t apic_id, MSITriggerMode trigger_mode,
+		       	MSIDeliveryMode delivery_mode, uint8_t vector, unsigned int num_vector_exponent) {
+		uint32_t msg_addr = 0xfee00000u | (apic_id << 12);
+		uint32_t msg_data = (static_cast<uint32_t>(delivery_mode) << 8) | vector;
+		if (trigger_mode == MSITriggerMode::kLevel) {
+			msg_data |= 0xc000;
+		}
+
+		return ConfigureMSI(func, msg_addr, msg_data, num_vector_exponent);
 	}
 }

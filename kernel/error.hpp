@@ -25,6 +25,7 @@ class Error {
 			kInvalidPhase,
 			kUnknownXHCISpeedID,
 			kNoWaiter,
+			kNoPCIMSI,
 			kTest1,
 			kTest2,
 			kTest3,
@@ -54,6 +55,7 @@ class Error {
 			"kInvalidPhase",
 			"kUnknownXHCISpeedID",
 			"kNoWaiter",
+			"kNoPCIMSI",
 			"kTest1",
 			"kTest2",
 			"kTest3"
