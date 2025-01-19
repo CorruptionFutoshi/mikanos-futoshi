@@ -14,7 +14,7 @@ typedef int64_t		Elf64_Sxword;
 // #define means set of variable and value. e_ident field is always 16 byte so declare as 16
 #define EI_NIDENT	16
 
-// this struct Elf64_Efdr represent file header of 64bit Elf. file header of 64bit Elf is singular in Elf
+// this struct Elf64_Ehdr represent file header of 64bit Elf. file header of 64bit Elf is singular in Elf
 typedef struct {
 	unsigned char e_ident[EI_NIDENT];
 	Elf64_Half	e_type;

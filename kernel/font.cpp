@@ -1,11 +1,12 @@
 #include "font.hpp"
 
+// extern means this variable is already declared as global variable.
 extern const uint8_t _binary_hankaku_bin_start;
 extern const uint8_t _binary_hankaku_bin_end;
 extern const uint8_t _binary_hankaku_bin_size;
 
 const uint8_t* GetFontPtr(char c) {
-	// 16 means byte size of a font of hankaku. fontdata line up without any gap. i dont know why &_binary_hankaku_bin_size represent size of font data. auto means var of Java
+	// 16 means byte size of a font of hankaku. fontdata line up without any gap. i dont know why &_binary_hankaku_bin_size represent size of font data.(probably it is initialized in other source file, maybe hankaku.o). auto means var of Java
 	auto index = 16 * static_cast<unsigned int>(c);
 
 	if (index >= reinterpret_cast<uintptr_t>(&_binary_hankaku_bin_size)) {

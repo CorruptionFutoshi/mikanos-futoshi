@@ -24,7 +24,7 @@ rm -f $DISK_IMG
 qemu-img create -f raw $DISK_IMG 200M
 # mkfs.fat means that create FAT filesystem. -n means name of volume label.
 # -s means number of cluster per sector. -f means FAT version. -R means number of reserved sector. -F means format version of FAT.
-mkfs.fat -n 'MIKAN OS-futoshi' -s 2 -f 2 -R 32 -F 32 $DISK_IMG
+mkfs.fat -n 'MIKAN OS-fu' -s 2 -f 2 -R 32 -F 32 $DISK_IMG
 
 $DEVENV_DIR/mount_image.sh $DISK_IMG $MOUNT_POINT
 sudo mkdir -p $MOUNT_POINT/EFI/BOOT

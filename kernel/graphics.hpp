@@ -31,7 +31,6 @@ class RGBResv8BitPerColorPixelWriter : public PixelWriter {
 	public:
 		// using {super class name}:{super class name} means constructor of super class
 		using PixelWriter::PixelWriter;
-
 		virtual void Write(int x, int y, const PixelColor& c) override;
 };
 
@@ -44,8 +43,17 @@ class BGRResv8BitPerColorPixelWriter : public PixelWriter {
 template <typename T>
 struct Vector2D {
 	T x, y;
+
+	// this "template <typename U>" means in this method we will use U type
+	template <typename U>
+		// this object is left side. right side is parameter rhs
+		Vector2D<T>& operator +=(const Vector2D<U>& rhs) {
+			x += rhs.x;
+			y += rhs.y;
+			// "this" is pointer of this object, Vector2D. so *this is Vector2D 
+			return *this;
+		}
 };
 
 void DrawRectangle(PixelWriter& writer, const Vector2D<int>& pos, const Vector2D<int>& size, const PixelColor& c);
 void FillRectangle(PixelWriter& writer, const Vector2D<int>& pos, const Vector2D<int>& size, const PixelColor& c);
-

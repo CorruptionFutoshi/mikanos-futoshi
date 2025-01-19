@@ -18,6 +18,7 @@ void Console::PutString(const char* s) {
 			buffer_[cursor_row_][cursor_column_] = *s;
 			++cursor_column_;
 		}
+		// ++ means add size of type to address. in this case type is char, so s += 1 byte. this operator can only use to pointer. 
 		++s;
 	}
 }
@@ -36,6 +37,7 @@ void Console::Newline() {
 
 		for (int row = 0; row < kRows -1; ++row) {
 			// first parameter as destination, second parameter as source, third parameter as size
+			// buffer_ is two dimensional array. so buffer_[row] means array. and buffer_[row] is pointer because it is array. 
 			memcpy(buffer_[row], buffer_[row + 1], kColumns + 1);
 			WriteString(writer_, 0, 16 * row, buffer_[row], fg_color_);
 		}

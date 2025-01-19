@@ -215,6 +215,7 @@ void CalcLoadAddressRange(Elf64_Ehdr* ehdrptr, UINT64* firstptr, UINT64* lastptr
 	// declare i as Elf64_Half (not as UINT64) because e_phnum field declare as uint16_t( equal Elf64_Half) 
 	for (Elf64_Half i = 0; i < ehdrptr->e_phnum; i++){
 		if (phdrptr[i].p_type != PT_LOAD) continue;
+		// virtual address require real address? If real address specified with virtual address is not empty, i wonder what will happen. 
 		*firstptr = MIN(*firstptr, phdrptr[i].p_vaddr);
 		*lastptr = MAX(*lastptr, phdrptr[i].p_vaddr + phdrptr[i].p_memsz);
 	}
@@ -412,6 +413,7 @@ EFI_STATUS EFIAPI UefiMain(
 	// data that offset 24 byte of kernel.elf is address of main enry point. not main entry point 
 	// UINT64 entry_addr = *(UINT64*)(kernel_base_addr + 24);
 
+	// i don't know why add 24. offset 24 byte of kernel.elf is address of main entry point. but kernel_first_addr is not head of kernel.elf. it is head of LOAD segment. so i don't know.
 	UINT64 entry_addr = *(UINT64*)(kernel_first_addr + 24);
 
 	struct FrameBufferConfig config = {

@@ -18,6 +18,7 @@ void BGRResv8BitPerColorPixelWriter::Write(int x, int y, const PixelColor& c){
 void DrawRectangle(PixelWriter& writer, const Vector2D<int>& pos, const Vector2D<int>& size, const PixelColor& c) {
 	for (int dx = 0; dx < size.x; ++dx) {
 		writer.Write(pos.x + dx, pos.y, c);
+		// - 1 to draw inside specified area. if don't -1, rectangle is 1 pixel bigger than specified area. if position (1,1) and size (3,4), y of above line is 1, y of below line is 4. so y of drawn area is 4(pixel1, pixel2, pixel3, pixel4).
 		writer.Write(pos.x + dx, pos.y + size.y - 1, c);
 	}
 

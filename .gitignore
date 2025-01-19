@@ -5,3 +5,6 @@ hankaku.txt
 hankaku.bin
 tools/
 *.d
+mnt/
+disk.img
+usb/
