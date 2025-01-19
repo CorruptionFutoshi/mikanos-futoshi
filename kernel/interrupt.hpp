@@ -20,7 +20,7 @@ union InterruptDescriptorAttribute {
 	struct {
 		uint16_t interrupt_stack_table : 3;
 		uint16_t : 5;
-		DescryptorType type : 4;
+		DescriptorType type : 4;
         	uint16_t : 1;
 		uint16_t descriptor_privilege_level : 2;
 		uint16_t present : 1;
@@ -42,7 +42,7 @@ constexpr InterruptDescriptorAttribute MakeIDTAttr(
 		DescriptorType type,
 		uint8_t descriptor_privilege_level,
 		bool present = true,
-		uint8_t interrupt)stack_table = 0) {
+		uint8_t interrupt_stack_table = 0) {
 			InterruptDescriptorAttribute attr{};
 			attr.bits.interrupt_stack_table = interrupt_stack_table;
 			attr.bits.type = type;
@@ -69,7 +69,7 @@ struct InterruptFrame {
 	uint64_t rflags;
 	uint64_t rsp;
 	uint64_t ss;
-}
+};
 
 void NotifyEndOfInterrupt();
 
