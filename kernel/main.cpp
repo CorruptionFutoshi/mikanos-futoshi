@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "frame_buffer_config.hpp"
+#include "memory_map.hpp"
 #include "graphics.hpp"
 #include "mouse.hpp"
 #include "font.hpp"
@@ -107,7 +108,7 @@ void IntHandlerXHCI(InterruptFrame* frame) {
 	NotifyEndOfInterrupt();
 }
 
-extern "C" void KernelMain(const FrameBufferConfig& frame_buffer_config){
+extern "C" void KernelMain(const FrameBufferConfig& frame_buffer_config, const MemoryMap& memory_map){
 	switch(frame_buffer_config.pixel_format) {
 		case kPixelRGBResv8BitPerColor:
 			// new operator seems to require two parameter, but size_t is not need. new calcurate size of type automatically. so it is enough to set parameter buffer. {frame_buffer_config} is required by constructor. {} is uniform initialization
@@ -130,6 +131,34 @@ extern "C" void KernelMain(const FrameBufferConfig& frame_buffer_config){
 	consoleptr = new(console_buf) Console{*pixel_writerptr, kDesktopFGColor, kDesktopBGColor};
 	printk("Saiko no Egao de Kirinukeruyo");
 	SetLogLevel(kInfo);
+
+	const std::array available_memory_types{
+			MemoryType::kEfiBootServicesCode,
+			MemoryType::kEfiBootServicesData,
+			MemoryType::kEfiConventionalMemory,
+	};
+
+	printk("memory_map: %p\n", &memory_map);
+
+	for (uintptr_t iter = reinterpret_cast<uintptr_t>(memory_map.buffer);
+	     iter < reinterpret_cast<uintptr_t>(memory_map.buffer) + memory_map.map_size;
+	     iter += memory_map.descriptor_size) {
+		auto desc = reinterpret_cast<MemoryDescriptor*>(iter);
+
+		for (int i = 0; i < available_memory_types.size(); ++i) {
+			// the reason why we can get type without set is maybe UEFI firmware set it.
+			if (desc->type == available_memory_types[i]) {
+				// attr represent
+				printk ("type = %u, phys = %08lx - %08lx, pages = %lu, attr = %08lx\n ",
+					desc->type,
+					desc->physical_start,
+					desc->physical_start + desc->number_of_pages * 4096 - 1,
+					desc->number_of_pages,
+					desc->attribute);
+			}
+		}
+	
+	}
 
 	mouse_cursor = new(mouse_cursor_buf) MouseCursor {
 		pixel_writerptr, kDesktopBGColor, {300, 200}
