@@ -8,3 +8,4 @@ tools/
 mnt/
 disk.img
 usb/
+OVMF_VARS.fd

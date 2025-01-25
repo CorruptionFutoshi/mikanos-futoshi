@@ -43,62 +43,61 @@ Console* consoleptr;
 
 // ... means variable-length parameters
 int printk(const char* format, ...) {
-	// variable store variable-length parameters
-	va_list ap;
-	int result;
-	char s[1024];
+// variable store variable-length parameters
+va_list ap;
+int result;
+char s[1024];
 
-	// va_start() method represent proccess before using variable-length parameters
-	va_start(ap, format);
-	result = vsprintf(s, format, ap);
-	// va_end() method represent process after using variable-length parameters
-	va_end(ap);
-	
-	consoleptr->PutString(s);
-	return result;
+// va_start() method represent proccess before using variable-length parameters
+va_start(ap, format);
+result = vsprintf(s, format, ap);
+// va_end() method represent process after using variable-length parameters
+va_end(ap);
+
+consoleptr->PutString(s);
+return result;
 }
 
 char mouse_cursor_buf[sizeof(MouseCursor)];
 MouseCursor* mouse_cursor;
 
 void MouseObserver(int8_t displacement_x, int8_t displacement_y) {
-	mouse_cursor->MoveRelative({displacement_x, displacement_y});
+mouse_cursor->MoveRelative({displacement_x, displacement_y});
 }
 
 void SwitchEhciToXhci(const pci::Device& xhc_dev) {
-	bool intel_ehc_exist = false;
+bool intel_ehc_exist = false;
 
-	for (int i = 0; i < pci::num_device; ++i) {
-		// base, sub, interface is 0x0cu, 0x03u, 0x20u means that this fucntion is EHCI controller. u means unsigned
-		if (pci::devices[i].class_code.Match(0x0cu, 0x03u, 0x20u) && 0x8086 == pci::ReadVendorId(pci::devices[i])) {
-			intel_ehc_exist = true;
-			break;
-		}
+for (int i = 0; i < pci::num_device; ++i) {
+	// base, sub, interface is 0x0cu, 0x03u, 0x20u means that this fucntion is EHCI controller. u means unsigned
+	if (pci::devices[i].class_code.Match(0x0cu, 0x03u, 0x20u) && 0x8086 == pci::ReadVendorId(pci::devices[i])) {
+		intel_ehc_exist = true;
+		break;
 	}
+}
 
-	if (!intel_ehc_exist) {
-		return;
-	}
+if (!intel_ehc_exist) {
+	return;
+}
 
-	// PCI configuration space is 255(0xff). pci:: means pci namespace. 
-	uint32_t superspeed_ports = pci::ReadConfReg(xhc_dev, 0xdc);
-	pci::WriteConfReg(xhc_dev, 0xd8, superspeed_ports);
-	uint32_t ehcitoxhci_ports = pci::ReadConfReg(xhc_dev, 0xd4);
-	pci::WriteConfReg(xhc_dev, 0xd0, ehcitoxhci_ports);
+// PCI configuration space is 255(0xff). pci:: means pci namespace. 
+uint32_t superspeed_ports = pci::ReadConfReg(xhc_dev, 0xdc);
+pci::WriteConfReg(xhc_dev, 0xd8, superspeed_ports);
+uint32_t ehcitoxhci_ports = pci::ReadConfReg(xhc_dev, 0xd4);
+pci::WriteConfReg(xhc_dev, 0xd0, ehcitoxhci_ports);
 
-	Log(kDebug, "SwitchEhciToXhci: SS = %02, xHCI = %02x\n", superspeed_ports, ehcitoxhci_ports);
+Log(kDebug, "SwitchEhciToXhci: SS = %02, xHCI = %02x\n", superspeed_ports, ehcitoxhci_ports);
 }
 
 usb::xhci::Controller* xhc;
 
 struct Message {
-	enum Type {
-		kInterruptXHCI,
-	} type;
+enum Type {
+	kInterruptXHCI,
+} type;
 };
 
 ArrayQueue<Message>* main_queue;
-
 
 // write __attribute__((interrupt)) to tell compiler that this is interrupt handler.
 __attribute__((interrupt))
