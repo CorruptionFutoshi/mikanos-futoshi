@@ -19,6 +19,7 @@
 #include "usb/xhci/trb.hpp"
 #include "interrupt.hpp"
 #include "asmfunc.h"
+#include "queue.hpp"
 
 const PixelColor kDesktopBGColor{213, 203, 198};
 const PixelColor kDesktopFGColor{81, 55, 67};
@@ -64,12 +65,12 @@ void MouseObserver(int8_t displacement_x, int8_t displacement_y) {
 	mouse_cursor->MoveRelative({displacement_x, displacement_y});
 }
 
-void SwitchEhciToXhci(const pci::Function& xhc_func) {
+void SwitchEhciToXhci(const pci::Device& xhc_dev) {
 	bool intel_ehc_exist = false;
 
-	for (int i = 0; i < pci::num_function; ++i) {
+	for (int i = 0; i < pci::num_device; ++i) {
 		// base, sub, interface is 0x0cu, 0x03u, 0x20u means that this fucntion is EHCI controller. u means unsigned
-		if (pci::functions[i].class_code.Match(0x0cu, 0x03u, 0x20u) && 0x8086 == pci::ReadVendorId(pci::functions[i])) {
+		if (pci::devices[i].class_code.Match(0x0cu, 0x03u, 0x20u) && 0x8086 == pci::ReadVendorId(pci::devices[i])) {
 			intel_ehc_exist = true;
 			break;
 		}
@@ -80,23 +81,30 @@ void SwitchEhciToXhci(const pci::Function& xhc_func) {
 	}
 
 	// PCI configuration space is 255(0xff). pci:: means pci namespace. 
-	uint32_t superspeed_ports = pci::ReadConfReg(xhc_func, 0xdc);
-	pci::WriteConfReg(xhc_func, 0xd8, superspeed_ports);
-	uint32_t ehcitoxhci_ports = pci::ReadConfReg(xhc_func, 0xd4);
-	pci::WriteConfReg(xhc_func, 0xd0, ehcitoxhci_ports);
+	uint32_t superspeed_ports = pci::ReadConfReg(xhc_dev, 0xdc);
+	pci::WriteConfReg(xhc_dev, 0xd8, superspeed_ports);
+	uint32_t ehcitoxhci_ports = pci::ReadConfReg(xhc_dev, 0xd4);
+	pci::WriteConfReg(xhc_dev, 0xd0, ehcitoxhci_ports);
 
 	Log(kDebug, "SwitchEhciToXhci: SS = %02, xHCI = %02x\n", superspeed_ports, ehcitoxhci_ports);
 }
 
+usb::xhci::Controller* xhc;
+
+struct Message {
+	enum Type {
+		kInterruptXHCI,
+	} type;
+};
+
+ArrayQueue<Message>* main_queue;
+
+
 // write __attribute__((interrupt)) to tell compiler that this is interrupt handler.
 __attribute__((interrupt))
 void IntHandlerXHCI(InterruptFrame* frame) {
-	while (xhc->PrimaryEventRing()->HasFront()) {
-		if (auto err = ProcessEvent(*xhc)) {
-			Log(kError, "Error while ProcessEvent: %s at %s:%d\n",
-			    err.Name(), err.File(), err.Line());
-		}
-	}
+	// Message{Message::kInterruptXHCI} is initializer list. Message struct has only one field, so we can initialize with this code.
+	main_queue->Push(Message{Message::kInterruptXHCI});
 	NotifyEndOfInterrupt();
 }
 
@@ -127,33 +135,37 @@ extern "C" void KernelMain(const FrameBufferConfig& frame_buffer_config){
 	mouse_cursor = new(mouse_cursor_buf) MouseCursor {
 		pixel_writerptr, kDesktopBGColor, {300, 200}
 	};
+
+	std::array<Message, 32> main_queue_data;
+	ArrayQueue<Message> main_queue{main_queue_data};
+	::main_queue = &main_queue;
 	
 	auto err = pci::ScanAllBus();
 	Log(kDebug, "ScanAllBus: %s\n", err.Name());
 
-	for (int i = 0; i < pci::num_function; ++i) {
-		const auto& func = pci::functions[i];
-		auto vendor_id = pci::ReadVendorId(func.bus, func.device, func.function);
-		auto class_code = pci::ReadClassCode(func.bus, func.device, func.function);
+	for (int i = 0; i < pci::num_device; ++i) {
+		const auto& dev = pci::devices[i];
+		auto vendor_id = pci::ReadVendorId(dev.bus, dev.device, dev.function);
+		auto class_code = pci::ReadClassCode(dev.bus, dev.device, dev.function);
 
-		Log(kDebug, "%d.%d.%d: vend %04x, class %08x, head %02x\n", func.bus, func.device, func.function, vendor_id, class_code, func.header_type);
+		Log(kDebug, "%d.%d.%d: vend %04x, class %08x, head %02x\n", dev.bus, dev.device, dev.function, vendor_id, class_code, dev.header_type);
 	}
 
-	pci::Function* xhc_funcptr = nullptr;
+	pci::Device* xhc_devptr = nullptr;
 	
-	for (int i = 0; i < pci::num_function; ++i) {
-		if (pci::functions[i].class_code.Match(0x0cu, 0x03u, 0x30u)) {
-			xhc_funcptr = &pci::functions[i];
+	for (int i = 0; i < pci::num_device; ++i) {
+		if (pci::devices[i].class_code.Match(0x0cu, 0x03u, 0x30u)) {
+			xhc_devptr = &pci::devices[i];
 		
 			// if this xhc controller is made by intel, select it
-			if(0x8086 == pci::ReadVendorId(*xhc_funcptr)) {
+			if(0x8086 == pci::ReadVendorId(*xhc_devptr)) {
 				break;
 			}
 		}
 	}
 
-	if(xhc_funcptr) {
-		Log(kInfo, "xHC has been found: %d.%d.%d\n", xhc_funcptr->bus, xhc_funcptr->device, xhc_funcptr->function);
+	if(xhc_devptr) {
+		Log(kInfo, "xHC has been found: %d.%d.%d\n", xhc_devptr->bus, xhc_devptr->device, xhc_devptr->function);
 	}
 
 	const uint16_t cs = GetCS();
@@ -164,11 +176,11 @@ extern "C" void KernelMain(const FrameBufferConfig& frame_buffer_config){
 
 	const uint8_t bsp_local_apic_id = *reinterpret_cast<const uint32_t*>(0xfee00020) >> 24;
 	pci::ConfigureMSIFixedDestination(
-			*xhc_funcptr, bsp_local_apic_id, 
+			*xhc_devptr, bsp_local_apic_id, 
 			pci::MSITriggerMode::kLevel, pci::MSIDeliveryMode::kFixed, InterruptVector::kXHCI, 0);
 
 	// in bar0 there is a mmio address 
-	const WithError<uint64_t> xhc_bar = pci::ReadBar(*xhc_funcptr, 0);
+	const WithError<uint64_t> xhc_bar = pci::ReadBar(*xhc_devptr, 0);
 	Log(kDebug, "ReadBar: %s\n", xhc_bar.error.Name());
 	// register that handle xHC is memory mapped I/O. ~ means reverse so this is mask of bottom 4 bit
 	const uint64_t xhc_mmio_base = xhc_bar.value & ~static_cast<uint64_t>(0xf);
@@ -177,8 +189,8 @@ extern "C" void KernelMain(const FrameBufferConfig& frame_buffer_config){
 	// this is declaration of Controller type variable. Controller type is in xhci namespace in usb namespace.
 	usb::xhci::Controller xhc{xhc_mmio_base};
 
-	if (0x8086 == pci::ReadVendorId(*xhc_funcptr)) {
-		SwitchEhciToXhci(*xhc_funcptr);
+	if (0x8086 == pci::ReadVendorId(*xhc_devptr)) {
+		SwitchEhciToXhci(*xhc_devptr);
 	}
 
 	// variable name "err" is already used, so envelope with '{}' and create independent scope
@@ -192,8 +204,8 @@ extern "C" void KernelMain(const FrameBufferConfig& frame_buffer_config){
 
 	// align xhc of global variable to local variable xhc's address. 
 	::xhc = &xhc;
-	// sti is Set Interrupt Flag. it activaate interrupt.
-	__asm__("sti");
+	// sti is Set Interrupt Flag. it activate interrupt.
+	// __asm__("sti");
 
 	usb::HIDMouseDriver::default_observer = MouseObserver;
 
@@ -210,7 +222,34 @@ extern "C" void KernelMain(const FrameBufferConfig& frame_buffer_config){
 		}
 	}
 
-	while (1) __asm__("hlt");
+	while (true) {
+		// cli represent that set interrupt flag to 0. it means don't receive interrupt.
+		__asm__("cli");
+
+		if (main_queue.Count() == 0) {
+			// use \n\t to thw order in one line.
+			__asm__("sti\n\thlt");
+			continue;
+		}
+
+		Message msg = main_queue.Front();
+		main_queue.Pop();
+		__asm__("sti");
+
+		switch (msg.type) {
+			case Message::kInterruptXHCI:
+				while (xhc.PrimaryEventRing() ->HasFront()) {
+					if (auto err = ProcessEvent(xhc)) {
+						Log(kError, "Error while ProcessEvent: %s at %s:%d\n",
+								err.Name(), err.File(), err.Line());
+					}
+				}
+
+				break;
+			default:
+				Log(kError, "Unkenown message type: %d\n", msg.type);
+		}
+	}
 }
 
 // __cxa_pure_virtual() is first value of vtable about pure virtual method. if this method is called, there is a bug. i don't know why we should write this method despite that 
