@@ -21,6 +21,8 @@
 #include "interrupt.hpp"
 #include "asmfunc.h"
 #include "queue.hpp"
+#include "segment.hpp"
+#include "paging.hpp"
 
 const PixelColor kDesktopBGColor{213, 203, 198};
 const PixelColor kDesktopFGColor{81, 55, 67};
@@ -108,7 +110,15 @@ void IntHandlerXHCI(InterruptFrame* frame) {
 	NotifyEndOfInterrupt();
 }
 
-extern "C" void KernelMain(const FrameBufferConfig& frame_buffer_config, const MemoryMap& memory_map){
+// alignas guarantee that start address of this variable is multiple of 16.
+// as you already know, uint8_t is type of content of array.
+alignas(16) uint8_t kernel_main_stack[1024 * 1024];
+
+extern "C" void KernelMainNewStack(const FrameBufferConfig& frame_buffer_config_ref, const MemoryMap& memory_map_ref){
+	// i don't know why create frame_buffer_config instead of directly use frame_buffer_config_ref.
+	FrameBufferConfig frame_buffer_config{frame_buffer_config_ref};
+	MemoryMap memory_map{memory_map_ref};
+
 	switch(frame_buffer_config.pixel_format) {
 		case kPixelRGBResv8BitPerColor:
 			// new operator seems to require two parameter, but size_t is not need. new calcurate size of type automatically. so it is enough to set parameter buffer. {frame_buffer_config} is required by constructor. {} is uniform initialization
@@ -132,30 +142,29 @@ extern "C" void KernelMain(const FrameBufferConfig& frame_buffer_config, const M
 	printk("Saiko no Egao de Kirinukeruyo");
 	SetLogLevel(kInfo);
 
-	const std::array available_memory_types{
-			MemoryType::kEfiBootServicesCode,
-			MemoryType::kEfiBootServicesData,
-			MemoryType::kEfiConventionalMemory,
-	};
+	SetupSegments();
+	// 3-15 bit of segment selector(value that written in segment register) represent index of GDT.
+	const uint16_t kernel_cs = 1 << 3;
+	const uint16_t kernel_ss = 2 << 3;
+	SetDSAll(0);
+	SetCSSS(kernel_cs, kernel_ss);
 
-	printk("memory_map: %p\n", &memory_map);
+	SetupIdentityPageTable();
 
-	for (uintptr_t iter = reinterpret_cast<uintptr_t>(memory_map.buffer);
-	     iter < reinterpret_cast<uintptr_t>(memory_map.buffer) + memory_map.map_size;
+	const auto memory_map_base = reinterpret_cast<uintptr_t>(memory_map.buffer);
+	for (uintptr_t iter = memory_map_base;
+	     iter < memory_map_base + memory_map.map_size;
 	     iter += memory_map.descriptor_size) {
 		auto desc = reinterpret_cast<MemoryDescriptor*>(iter);
 
-		for (int i = 0; i < available_memory_types.size(); ++i) {
+		if (IsAvailable(static_cast<MemoryType>(desc->type))) {
 			// the reason why we can get type without set is maybe UEFI firmware set it.
-			if (desc->type == available_memory_types[i]) {
-				// attr represent
-				printk ("type = %u, phys = %08lx - %08lx, pages = %lu, attr = %08lx\n ",
-					desc->type,
-					desc->physical_start,
-					desc->physical_start + desc->number_of_pages * 4096 - 1,
-					desc->number_of_pages,
-					desc->attribute);
-			}
+			printk ("type = %u, phys = %08lx - %08lx, pages = %lu, attr = %08lx\n ",
+				desc->type,
+				desc->physical_start,
+				desc->physical_start + desc->number_of_pages * 4096 - 1,
+				desc->number_of_pages,
+				desc->attribute);
 		}
 	
 	}
@@ -196,10 +205,9 @@ extern "C" void KernelMain(const FrameBufferConfig& frame_buffer_config, const M
 		Log(kInfo, "xHC has been found: %d.%d.%d\n", xhc_devptr->bus, xhc_devptr->device, xhc_devptr->function);
 	}
 
-	const uint16_t cs = GetCS();
 	// reinterpret_cast<uint64_t>({method}) is address of method.
 	SetIDTEntry(idt[InterruptVector::kXHCI], MakeIDTAttr(DescriptorType::kInterruptGate, 0), 
-				reinterpret_cast<uint64_t>(IntHandlerXHCI), cs);
+				reinterpret_cast<uint64_t>(IntHandlerXHCI), kernel_cs);
 	LoadIDT(sizeof(idt) - 1, reinterpret_cast<uintptr_t>(&idt[0]));
 
 	const uint8_t bsp_local_apic_id = *reinterpret_cast<const uint32_t*>(0xfee00020) >> 24;

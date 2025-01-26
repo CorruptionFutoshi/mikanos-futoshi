@@ -49,5 +49,14 @@ inline bool operator==(MemoryType Ihs, uint32_t rhs) {
 	// this call above ==. so we don't need static_cast.
 	return rhs == Ihs;
 }
+
+inline bool IsAvailable(MemoryType memory_type) {
+	return
+		memory_type == MemoryType::kEfiBootServicesCode ||
+		memory_type == MemoryType::kEfiBootServicesData ||
+		memory_type == MemoryType::kEfiConventionalMemory;
+}
+
+const int kUEFIPageSize = 4096;
 // represent end of #ifdef
 #endif
