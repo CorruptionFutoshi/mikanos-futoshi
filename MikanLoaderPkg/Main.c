@@ -10,26 +10,27 @@
 #include <Protocol/BlockIo.h>
 #include <Guid/FileInfo.h>
 #include "frame_buffer_config.hpp"
+#include "memory_map.hpp"
 #include "elf.hpp"
 
 
-struct MemoryMap {
+// struct MemoryMap {
 	// represent first get memory size.
-	UINTN buffer_size;
+	// UINTN buffer_size;
 	// VOID means any type like var of Java. represent memoryAddress that point memory area stored this first get struct memorymap
-	VOID* bufferptr;
+	// VOID* bufferptr;
 	// represent size of this struct memorymap
-	UINTN map_size;
+	// UINTN map_size;
 	// represent variable to identify this struct memorymap 
-	UINTN map_key;
+	// UINTN map_key;
 	// represent size of descriptor. descriptor means individual row of this struct memorymap
-	UINTN descriptor_size;
+	// UINTN descriptor_size;
 	// represent version of descriptor
-	UINT32 descriptor_version;
-};
+	// UINT32 descriptor_version;
+// };
 
 EFI_STATUS GetMemoryMap(struct MemoryMap* map){
-	if (map->bufferptr == NULL){
+	if (map->buffer == NULL){
 		// i dont know why if map->bufferptr equals NULL, derive that buffer is too small. 
 		return EFI_BUFFER_TOO_SMALL;
 	}
@@ -40,7 +41,7 @@ EFI_STATUS GetMemoryMap(struct MemoryMap* map){
 	return gBS->GetMemoryMap(
 			&map->map_size,
 			// EFI_MEMORY_DESCRIPTOR means individual row of memorymap. 
-			(EFI_MEMORY_DESCRIPTOR*)map->bufferptr,
+			(EFI_MEMORY_DESCRIPTOR*)map->buffer,
 			&map->map_key,
 			&map->descriptor_size,
 			&map->descriptor_version);
@@ -84,14 +85,14 @@ EFI_STATUS SaveMemoryMap(struct MemoryMap* map, EFI_FILE_PROTOCOL* file){
 		return status;
 	}
 	// %08lx is format specifier. each characters have meaning. 0 means zero padding, 8 means more than 8...
-	Print(L"map->bufferptr = %08lx, map->map_size = %08lx\n", map->bufferptr, map->map_size);
+	Print(L"map->bufferptr = %08lx, map->map_size = %08lx\n", map->buffer, map->map_size);
 
 	// EFI_PHYSICAL_ADDRESS means physical memory address. UINT64 type
 	EFI_PHYSICAL_ADDRESS iter;
 	int i;
 
-	for(iter = (EFI_PHYSICAL_ADDRESS)map->bufferptr, i = 0;
- 	    iter < (EFI_PHYSICAL_ADDRESS)map->bufferptr + map->map_size;
+	for(iter = (EFI_PHYSICAL_ADDRESS)map->buffer, i = 0;
+ 	    iter < (EFI_PHYSICAL_ADDRESS)map->buffer + map->map_size;
 	    iter += map->descriptor_size, i ++){
 		EFI_MEMORY_DESCRIPTOR* descptr = (EFI_MEMORY_DESCRIPTOR*) iter;
 		// AsciiSPrint() write third parameter to second parameter size of char[] specified by first parameter
@@ -438,11 +439,11 @@ EFI_STATUS EFIAPI UefiMain(
 	}
 	
 	// this is type prototype. definition of c language method
-	typedef void EntryPointType(const struct FrameBufferConfig*);
+	typedef void EntryPointType(const struct FrameBufferConfig*, const struct MemoryMap*);
 	EntryPointType* entry_point = (EntryPointType*)entry_addr;
 	// after exit bootservices, using Print method that is one of bootservices cause freeze 
 	// Print(L"korekara kernel yobidasi");
-	entry_point(&config);
+	entry_point(&config, &memmap);
 
 	Print(L"All done\n");
 
