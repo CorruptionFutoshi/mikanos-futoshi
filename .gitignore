@@ -9,3 +9,7 @@ mnt/
 disk.img
 usb/
 OVMF_VARS.fd
+/kernel.elf
+/hankaku.bin
+/html
+/ipxe_root

@@ -6,16 +6,36 @@ struct PixelColor {
 	uint8_t r, g, b;
 };
 
+inline bool operator==(const PixelColor& ihs, const PixelColor& rhs) {
+	return ihs.r == rhs.r && ihs.g == rhs.g && ihs.b == rhs.b;
+}
+
+inline bool operator!=(const PixelColor& Ihs, const PixelColor& rhs) {
+	return !(Ihs==rhs);
+}
+
 class PixelWriter {
 	public:
 		// : config_{config} means config of parameter set to config_ of field
-		PixelWriter(const FrameBufferConfig& config) : config_{config}{
-		}
+	// 	PixelWriter(const FrameBufferConfig& config) : config_{config}{
+	//	}
+	
+	
 	
 	// ~{class name} means destructor	
 	virtual ~PixelWriter() = default;
 	// {method} = 0 means this method is pure virtual function. it is method that have no contents for override
 	virtual void Write(int x, int y, const PixelColor& c) = 0;
+	virtual int Width() const = 0;
+	virtual int Height() const = 0;
+};
+
+class FrameBufferWriter : public PixelWriter {
+	public:
+		FrameBufferWriter(const FrameBufferConfig& config) : config_{config} {}
+		virtual ~FrameBufferWriter() = default;
+		virtual int Width() const override { return config_.horizontal_resolution; }
+		virtual int Height() const override { return config_.vertical_resolution; }
 
 	protected:
 		uint8_t* PixelAt(int x, int y) {
@@ -27,16 +47,16 @@ class PixelWriter {
 		const FrameBufferConfig& config_;
 };
 
-class RGBResv8BitPerColorPixelWriter : public PixelWriter {
+class RGBResv8BitPerColorPixelWriter : public FrameBufferWriter {
 	public:
 		// using {super class name}:{super class name} means constructor of super class
-		using PixelWriter::PixelWriter;
+		using FrameBufferWriter::FrameBufferWriter;
 		virtual void Write(int x, int y, const PixelColor& c) override;
 };
 
-class BGRResv8BitPerColorPixelWriter : public PixelWriter {
+class BGRResv8BitPerColorPixelWriter : public FrameBufferWriter {
 	public:
-		using PixelWriter::PixelWriter;
+		using FrameBufferWriter::FrameBufferWriter;
 		virtual void Write(int x, int y, const PixelColor& c) override;
 };
 
@@ -57,3 +77,8 @@ struct Vector2D {
 
 void DrawRectangle(PixelWriter& writer, const Vector2D<int>& pos, const Vector2D<int>& size, const PixelColor& c);
 void FillRectangle(PixelWriter& writer, const Vector2D<int>& pos, const Vector2D<int>& size, const PixelColor& c);
+
+const PixelColor kDesktopBGColor{45, 118, 237};
+const PixelColor kDesktopFGColor{255, 255, 255};
+
+void DrawDesktop(PixelWriter& writer);

@@ -24,9 +24,8 @@
 #include "segment.hpp"
 #include "paging.hpp"
 #include "memory_manager.hpp"
-
-const PixelColor kDesktopBGColor{213, 203, 198};
-const PixelColor kDesktopFGColor{81, 55, 67};
+#include "window.hpp"
+#include "layer.hpp"
 
 // in c++ there is a placement new declaration in default
 // this is called placement new. it allocate memory area specified by parameter.
@@ -40,10 +39,10 @@ const PixelColor kDesktopFGColor{81, 55, 67};
 
 // in c++, char is 1 byte. so memory area of array of char that have n contents equalls memory area of n byte 
 char pixel_writer_buf[sizeof(RGBResv8BitPerColorPixelWriter)];
-PixelWriter* pixel_writerptr;
+PixelWriter* pixel_writer;
 
 char console_buf[sizeof(Console)];
-Console* consoleptr;
+Console* console;
 
 // ... means variable-length parameters
 int printk(const char* format, ...) {
@@ -58,18 +57,18 @@ result = vsprintf(s, format, ap);
 // va_end() method represent process after using variable-length parameters
 va_end(ap);
 
-consoleptr->PutString(s);
+console->PutString(s);
 return result;
 }
 
 char memory_manager_buf[sizeof(BitmapMemoryManager)];
 BitmapMemoryManager* memory_manager;
 
-char mouse_cursor_buf[sizeof(MouseCursor)];
-MouseCursor* mouse_cursor;
+unsigned int mouse_layer_id;
 
 void MouseObserver(int8_t displacement_x, int8_t displacement_y) {
-mouse_cursor->MoveRelative({displacement_x, displacement_y});
+	layer_manager->MoveRelative(mouse_layer_id, {displacement_x, displacement_y});
+	layer_manager->Draw();
 }
 
 void SwitchEhciToXhci(const pci::Device& xhc_dev) {
@@ -126,25 +125,19 @@ extern "C" void KernelMainNewStack(const FrameBufferConfig& frame_buffer_config_
 	switch(frame_buffer_config.pixel_format) {
 		case kPixelRGBResv8BitPerColor:
 			// new operator seems to require two parameter, but size_t is not need. new calcurate size of type automatically. so it is enough to set parameter buffer. {frame_buffer_config} is required by constructor. {} is uniform initialization
-			pixel_writerptr = new(pixel_writer_buf)RGBResv8BitPerColorPixelWriter{frame_buffer_config};
+			pixel_writer = new(pixel_writer_buf)RGBResv8BitPerColorPixelWriter{frame_buffer_config};
 			break;
 		case kPixelBGRResv8BitPerColor:
-			pixel_writerptr = new(pixel_writer_buf)BGRResv8BitPerColorPixelWriter{frame_buffer_config};
+			pixel_writer = new(pixel_writer_buf)BGRResv8BitPerColorPixelWriter{frame_buffer_config};
 			break;
 	}
-	
-	// k means constant
-	const int kFrameWidth = frame_buffer_config.horizontal_resolution;
-	const int kFrameHeight = frame_buffer_config.vertical_resolution;
 
-	FillRectangle(*pixel_writerptr, {0, 0}, {kFrameWidth, kFrameHeight - 50}, kDesktopBGColor);
-	FillRectangle(*pixel_writerptr, {0, kFrameHeight - 50}, {kFrameWidth, 50}, {179, 173, 160});
-	FillRectangle(*pixel_writerptr, {0, kFrameHeight - 50}, {kFrameWidth / 5, 50}, {165, 143, 134});
-	DrawRectangle(*pixel_writerptr, {10, kFrameHeight - 40}, {30, 30}, {230, 234, 227});	
+	// DrawDesktop(*pixel_writer);	
 
-	consoleptr = new(console_buf) Console{*pixel_writerptr, kDesktopFGColor, kDesktopBGColor};
-	printk("Saiko no Egao de Kirinukeruyo");
-	SetLogLevel(kInfo);
+	console = new(console_buf) Console{kDesktopFGColor, kDesktopBGColor};
+	console->SetWriter(pixel_writer);
+	printk("Saiko no Egao de Kirinukeruyo\n");
+	SetLogLevel(kWarn);
 
 	SetupSegments();
 	// 3-15 bit of segment selector(value that written in segment register) represent index of GDT.
@@ -187,9 +180,11 @@ extern "C" void KernelMainNewStack(const FrameBufferConfig& frame_buffer_config_
 
 	memory_manager->SetMemoryRange(FrameID{1}, FrameID{available_end / kBytesPerFrame});
 
-	mouse_cursor = new(mouse_cursor_buf) MouseCursor {
-		pixel_writerptr, kDesktopBGColor, {300, 200}
-	};
+	if (auto err = InitializeHeap(*memory_manager)) {
+		Log(kError, "failed to allocate pages: %s at %s:%d\n", err.Name(), err.File(), err.Line());
+		// exit(1) represent abnormal termination.
+		exit(1);
+	}
 
 	std::array<Message, 32> main_queue_data;
 	ArrayQueue<Message> main_queue{main_queue_data};
@@ -276,6 +271,36 @@ extern "C" void KernelMainNewStack(const FrameBufferConfig& frame_buffer_config_
 		}
 	}
 
+	const int kFrameWidth = frame_buffer_config.horizontal_resolution;
+	const int kFrameHeight = frame_buffer_config.vertical_resolution;
+	
+	auto bgwindow = std::make_shared<Window>(kFrameWidth, kFrameHeight);
+	auto bgwriter = bgwindow->Writer();
+
+	DrawDesktop(*bgwriter);
+	console->SetWriter(bgwriter);
+
+	auto mouse_window = std::make_shared<Window>(kMouseCursorWidth, kMouseCursorHeight);
+	mouse_window->SetTransparentColor(kMouseTransparentColor);
+	DrawMouseCursor(mouse_window->Writer(), {0, 0});
+
+	layer_manager = new LayerManager;
+	layer_manager->SetWriter(pixel_writer);
+
+	auto bglayer_id = layer_manager->NewLayer()
+		.SetWindow(bgwindow)
+		.Move({0, 0})
+		.ID();
+
+	mouse_layer_id = layer_manager->NewLayer()
+		.SetWindow(mouse_window)
+		.Move({200, 200})
+		.ID();
+
+	layer_manager->UpDown(bglayer_id, 0);
+	layer_manager->UpDown(mouse_layer_id, 1);
+	layer_manager->Draw();
+	
 	while (true) {
 		// cli represent that set interrupt flag to 0. it means don't receive interrupt.
 		__asm__("cli");
