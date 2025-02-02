@@ -1,9 +1,14 @@
 #include <new>
 #include <cerrno>
 
+int printk(const char* format, ...);
+
 // in C++ std:: means standard library of C++. already there is a std::get_new_handler() method that returns std::new_handler. and below overwrite former method. in C++ we cant override method of standard library, but we can redeclare with same name and same return value and overwrite former method
 std::new_handler std::get_new_handler() noexcept {
-	return nullptr;
+	return [] {
+		printk("not enough memory\n");
+		exit(1);
+	};
 }
 
 // this method also overwrite former method. Posix is C library, so declare extern "C" and not need to write prefix like "std::" 

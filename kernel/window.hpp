@@ -3,6 +3,7 @@
 #include <vector>
 #include <optional>
 #include "graphics.hpp"
+#include "frame_buffer.hpp"
 
 class Window {
 	public:
@@ -10,8 +11,8 @@ class Window {
 			public:
 				WindowWriter(Window& window) : window_{window} {}
 
-				virtual void Write(int x, int y, const PixelColor& c) override {
-					window_.At(x, y) = c;
+				virtual void Write(Vector2D<int> pos, const PixelColor& c) override {
+					window_.Write(pos, c);
 				}
 
 				virtual int Width() const override { return window_.Width();}
@@ -22,14 +23,14 @@ class Window {
 				Window& window_;
 		};
 
-		Window(int width, int height);
+		Window(int width, int height, PixelFormat shadow_format);
 		// default represent that explicit declare implicit declared method.
 		~Window() = default;
 		// delete represent that delete implicit declared method like copy constructor and = operator.
 		Window(const Window& rhs) = delete;
 		Window& operator=(const Window& rhs) = delete;
 
-		void DrawTo(PixelWriter& writer, Vector2D<int> position);
+		void DrawTo(FrameBuffer& dst, Vector2D<int> position);
 
 		void SetTransparentColor(std::optional<PixelColor> c);
 
@@ -37,8 +38,9 @@ class Window {
 
 		// one of the reason that why there are method with const and method without const is that in const method only can 
 		// can call method with const.
-		PixelColor& At(int x, int y);
-		const PixelColor& At(int x, int y) const;
+		// PixelColor& At(int x, int y);
+		const PixelColor& At(Vector2D<int> pos) const;
+		void Write(Vector2D<int> pos, PixelColor c);
 
 		int Width() const;
 		int Height() const;
@@ -53,5 +55,7 @@ class Window {
 		WindowWriter writer_{*this};
 		// optional<> is like c#'s nullable type. and it have implicit bool type conversion.
 		std::optional<PixelColor> transparent_color_{std::nullopt};
+
+		FrameBuffer shadow_buffer_{};
 };
 

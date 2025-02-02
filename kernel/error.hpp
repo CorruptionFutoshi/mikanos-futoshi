@@ -26,6 +26,7 @@ class Error {
 			kUnknownXHCISpeedID,
 			kNoWaiter,
 			kNoPCIMSI,
+			kUnknownPixelFormat,
 			kTest1,
 			kTest2,
 			kTest3,
@@ -56,6 +57,7 @@ class Error {
 			"kUnknownXHCISpeedID",
 			"kNoWaiter",
 			"kNoPCIMSI",
+			"kUnknownPixelFormat",
 			"kTest1",
 			"kTest2",
 			"kTest3"
