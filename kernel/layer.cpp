@@ -68,12 +68,9 @@ void LayerManager::UpDown(unsigned int id, int new_height) {
 		return;
 	}
 
-	if (new_height > layer_stack_.size()) {
-		new_height = layer_stack_.size();
-	}
-
 	auto layer = FindLayer(id);
 	auto old_pos = std::find(layer_stack_.begin(), layer_stack_.end(), layer);
+	// iterator + integer return iterator.
 	auto new_pos = layer_stack_.begin() + new_height;
 
 	if (old_pos == layer_stack_.end()) {
@@ -81,12 +78,9 @@ void LayerManager::UpDown(unsigned int id, int new_height) {
 		return;
 	}
 
-	if (new_pos == layer_stack_.end()) {
-		--new_pos;
-	}
-
 	layer_stack_.erase(old_pos);
-	//new_pos = layer_stack_.begin() + std::min<size_t>(static_cast<size_t>(new_height), layer_stack_.size() - 1);
+	new_pos = layer_stack_.begin() + std::min<size_t>(static_cast<size_t>(new_height), layer_stack_.size() - 1);
+	// first prameter of insert() is not index, it's iterator. so if first parameter is 2, insert layer as second element.
 	layer_stack_.insert(new_pos, layer);
 }
 

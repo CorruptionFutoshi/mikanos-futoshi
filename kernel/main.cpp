@@ -26,6 +26,7 @@
 #include "memory_manager.hpp"
 #include "window.hpp"
 #include "layer.hpp"
+#include "timer.hpp"
 
 // in c++ there is a placement new declaration in default
 // this is called placement new. it allocate memory area specified by parameter.
@@ -68,7 +69,11 @@ unsigned int mouse_layer_id;
 
 void MouseObserver(int8_t displacement_x, int8_t displacement_y) {
 	layer_manager->MoveRelative(mouse_layer_id, {displacement_x, displacement_y});
+	StartLAPICTimer();
 	layer_manager->Draw();
+	auto elapsed = LAPICTimerElapsed();
+	StopLAPICTimer();
+	printk("MouseObserver: elapsed = %u\n", elapsed);
 }
 
 void SwitchEhciToXhci(const pci::Device& xhc_dev) {
@@ -132,12 +137,14 @@ extern "C" void KernelMainNewStack(const FrameBufferConfig& frame_buffer_config_
 			break;
 	}
 
-	// DrawDesktop(*pixel_writer);	
+	DrawDesktop(*pixel_writer);	
 
 	console = new(console_buf) Console{kDesktopFGColor, kDesktopBGColor};
 	console->SetWriter(pixel_writer);
 	printk("Saiko no Egao de Kirinukeruyo\n");
 	SetLogLevel(kWarn);
+
+	InitializeLAPICTimer();
 
 	SetupSegments();
 	// 3-15 bit of segment selector(value that written in segment register) represent index of GDT.
