@@ -5,7 +5,7 @@
 #include "layer.hpp"
 
 Console::Console(const PixelColor& fg_color, const PixelColor& bg_color)
-	: writer_{nullptr}, fg_color_{fg_color}, bg_color_{bg_color}, buffer_{}, cursor_row_{0}, cursor_column_{0}{
+	: writer_{nullptr}, window_{}, fg_color_{fg_color}, bg_color_{bg_color}, buffer_{}, cursor_row_{0}, cursor_column_{0}{
 }
 
 void Console::PutString(const char* s) {
@@ -36,20 +36,39 @@ void Console::SetWriter(PixelWriter* writer) {
 	}
 
 	writer_ = writer;
+	// reset() is method of std::shared_ptr. it repersent that give up ownership and set nullptr.
+	window_.reset();
+	Refresh();
+}
+
+void Console::SetWindow(const std::shared_ptr<Window>& window) {
+	if (window == window_) {
+		return;
+	}
+
+	window_ = window;
+	writer_ = window->Writer();
 	Refresh();
 }
 
 void Console::Newline() {
 	cursor_column_ = 0;
 
+	// cursor_row is 1 smaller than filled real row. if cursor_row is kRows - 1, kRows number of row is filled. 
 	if (cursor_row_ < kRows - 1) {
 		++cursor_row_;
+		return;
+	} 
+	
+	if (window_) {
+		// specify {0, 16} to declare src from second row.
+		// why kRows - 1 is that it's rectangle's height and remove first row.
+		Rectangle<int> move_src{{0, 16}, {8 * kColumns, 16 * (kRows - 1)}};
+		window_->Move({0, 0}, move_src);
+		// why kRows - 1 is that it's first address.
+		FillRectangle(*writer_, {0, 16 * (kRows - 1)}, {8 * kColumns, 16}, bg_color_);
 	} else {
-		for (int y = 0; y < 16 * kRows; ++y) {
-			for (int x = 0; x < 8 * kColumns; ++x) {
-				writer_->Write(Vector2D<int>{x, y}, bg_color_);
-			}
-		}
+		FillRectangle(*writer_, {0, 0}, {8 * kColumns, 16 * kRows}, bg_color_);
 
 		for (int row = 0; row < kRows -1; ++row) {
 			// first parameter as destination, second parameter as source, third parameter as size

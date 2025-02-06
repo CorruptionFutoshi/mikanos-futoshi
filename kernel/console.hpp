@@ -1,20 +1,24 @@
 #pragma once
 
+#include <memory>
 #include "graphics.hpp"
+#include "window.hpp"
 
 class Console {
 	public:
-		static const int kRows = 45, kColumns = 80;
+		static const int kRows = 30, kColumns = 80;
 
 		Console(const PixelColor& fg_color, const PixelColor& bg_color);
 		void PutString(const char* s);
 		void SetWriter(PixelWriter* writer);
+		void SetWindow(const std::shared_ptr<Window>& window);
 
 	private:
 		void Newline();
 		void Refresh();
 
 		PixelWriter* writer_;
+		std::shared_ptr<Window> window_;
 		const PixelColor fg_color_, bg_color_;
 		// set kColumns + 1 to save null character at end of column
 		char buffer_[kRows][kColumns + 1];
