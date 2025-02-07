@@ -21,21 +21,38 @@ struct Vector2D {
 	T x, y;
 
 	// this "template <typename U>" means in this method we will use U type
+	// in operator oberload as member method, we wil be gave right hand side as first parameter.
+	// because we do't need left hand side, we can use left hand side such as *this. 
 	template <typename U>
-		// this object is left side. right side is parameter rhs
-		Vector2D<T>& operator +=(const Vector2D<U>& rhs) {
-			x += rhs.x;
-			y += rhs.y;
-			// "this" is pointer of this object, Vector2D. so *this is Vector2D 
-			return *this;
-		}
-};
+	// this object is left side. right side is parameter rhs
+	Vector2D<T>& operator +=(const Vector2D<U>& rhs) {
+		x += rhs.x;
+		y += rhs.y;
+		// "this" is pointer of this object, Vector2D. so *this is Vector2D 
+		return *this;
+	}
+		
+	template< typename U>
+	Vector2D<T> operator +(const Vector2D<U> rhs) const {
+		auto tmp = *this;
+		tmp += rhs;
+		return tmp;
+	}	
+	
+	template< typename U>
+	Vector2D<T> operator -=(const Vector2D<U> rhs) {
+		x -= rhs.x;
+		y -= rhs.y;
+		return *this;
+	}	
 
-template <typename T, typename U>
-auto operator +(const Vector2D<T>& lhs, const Vector2D<U>& rhs)
-	-> Vector2D<decltype(lhs.x + rhs.x)> {
-		return {lhs.x + rhs.x, lhs.y + rhs.y};
-}
+	template< typename U>
+	Vector2D<T> operator -(const Vector2D<U> rhs) const {
+		auto tmp = *this;
+		tmp -= rhs;
+		return tmp;
+	}	
+};
 
 template <typename T>
 Vector2D<T> ElementMax(const Vector2D<T>& vector1, const Vector2D<T>& vector2) {
@@ -51,6 +68,21 @@ template <typename T>
 struct Rectangle {
 	Vector2D<T> pos, size;
 };
+
+template <typename T, typename U>
+Rectangle<T> operator&(const Rectangle<T>& lhs, const Rectangle<U> rhs) {
+	const auto lhs_end = lhs.pos + lhs.size;
+	const auto rhs_end = rhs.pos + rhs.size;
+
+	if (lhs_end.x < rhs.pos.x || lhs_end.y < rhs.pos.y ||
+	    rhs_end.x < lhs.pos.x || rhs_end.y < lhs.pos.y) {
+		return {{0, 0}, {0, 0}};
+	}
+
+	auto new_pos = ElementMax(lhs.pos, rhs.pos);
+	auto new_size = ElementMin(lhs_end, rhs_end) - new_pos;
+	return {new_pos, new_size};
+}
 
 class PixelWriter {
 	public:

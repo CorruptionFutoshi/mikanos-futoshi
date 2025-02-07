@@ -61,9 +61,11 @@ Error FrameBuffer::Initialize(const FrameBufferConfig& config) {
 	return MAKE_ERROR(Error::kSuccess);
 }
 
-// src represent copy source framebufferconfig
-// dst_pos represent that position of layer draw. 
-Error FrameBuffer::Copy(Vector2D<int> dst_pos, const FrameBuffer& src) {
+// src represent copy source framebuffer that is shadow_buffer. 
+// dst_pos represent that position of layer draw. it's position is based on framebufferconfig from loader.
+// position of Rectangle represent top left position of Rectangle. 
+// src_area.pos is based on shadow_buffer of src window.
+Error FrameBuffer::Copy(Vector2D<int> dst_pos, const FrameBuffer& src, const Rectangle<int>& src_area) {
 	// in this method, config_ represent framebufferconfig from loader and destination.
 	if (config_.pixel_format != src.config_.pixel_format) {
 		return MAKE_ERROR(Error::kUnknownPixelFormat);
@@ -77,17 +79,24 @@ Error FrameBuffer::Copy(Vector2D<int> dst_pos, const FrameBuffer& src) {
 		return MAKE_ERROR(Error::kUnknownPixelFormat);
 	}
 
-	const auto dst_size = FrameBufferSize(config_);
-	const auto src_size = FrameBufferSize(src.config_);
+	// declare three Rectangles with position based on FrameBufferConfig from Loader.
+	const Rectangle<int> src_area_outline{dst_pos, src_area.size};
+	// we want topleft position of srcWindow.
+	// dst_pos is based on FrameBufferConfig from Loader. src_area.pos is based on shadow_buffer of src window.
+	// src_area.pos = dst_pos - topleft position of srcWindow. 
+	const Rectangle<int> srcWindow_outline{dst_pos - src_area.pos, FrameBufferSize(src.config_)};
+	// dstWindow represent screen.
+	const Rectangle<int> dstWindow_outline{{0, 0}, FrameBufferSize(config_)};
+	// i wonder if srcWindow_outline is not need because src_area_outline is inside of srcWindow_outline.
+	const auto copy_area = dstWindow_outline & srcWindow_outline & src_area_outline;
+	// change what copy_area.pos based on from FrameBufferConfig from Loader to shadow_buffer of src window to use FrameAddrAt. 
+	const auto copy_area_pos_src = copy_area.pos - (dst_pos - src_area.pos);
 
-	const Vector2D<int> dst_start = ElementMax(dst_pos, {0, 0});
-	const Vector2D<int> dst_end = ElementMin(dst_pos + src_size, dst_size);
+	uint8_t* dst_buf = FrameBufferAddrAt(copy_area.pos, config_);
+	uint8_t* src_buf = FrameBufferAddrAt(copy_area_pos_src, src.config_);
 
-	uint8_t* dst_buf = FrameBufferAddrAt(dst_start, config_);
-	const uint8_t* src_buf = FrameBufferAddrAt({0, 0}, src.config_);
-
-	for (int y = dst_start.y; y < dst_end.y; ++y) {
-		memcpy(dst_buf, src_buf, bytes_per_pixel * (dst_end.x - dst_start.x));
+	for (int y = 0; y < copy_area.size.y; y++) {
+		memcpy(dst_buf, src_buf, bytes_per_pixel * copy_area.size.x);
 		dst_buf += BytesPerScanLine(config_);
 		src_buf += BytesPerScanLine(src.config_);
 	}
