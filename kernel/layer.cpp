@@ -22,6 +22,15 @@ Vector2D<int> Layer::GetPosition() const {
 	return pos_;
 }
 
+Layer& Layer::SetDraggable(bool draggable) {
+	draggable_ = draggable;
+	return *this;
+}
+
+bool Layer::IsDraggable() const {
+	return draggable_;
+}
+
 Layer& Layer::Move(Vector2D<int> pos) {
 	pos_ = pos;
 	return *this;
@@ -41,6 +50,10 @@ void Layer::DrawTo(FrameBuffer& screen, const Rectangle<int>& area) const {
 
 void LayerManager::SetScreen(FrameBuffer* screen) {
 	screen_ = screen;
+
+	FrameBufferConfig back_config = screen->Config();
+	back_config.frame_buffer = nullptr;
+	back_buffer_.Initialize(back_config);
 }
 
 Layer& LayerManager::NewLayer() {
@@ -53,8 +66,10 @@ Layer& LayerManager::NewLayer() {
 
 void LayerManager::Draw(const Rectangle<int>& area) const {
 	for (auto layer : layer_stack_) {
-		layer->DrawTo(*screen_, area);
+		layer->DrawTo(back_buffer_, area);
 	}
+
+	screen_->Copy(area.pos, back_buffer_, area);
 }
 
 void LayerManager::Draw(unsigned int id) const {
@@ -69,9 +84,11 @@ void LayerManager::Draw(unsigned int id) const {
 		}
 		
 		if (draw) {
-			layer->DrawTo(*screen_, window_area);
+			layer->DrawTo(back_buffer_, window_area);
 		}
 	}
+
+	screen_->Copy(window_area.pos, back_buffer_, window_area);
 }
 
 void LayerManager::Move(unsigned int id, Vector2D<int> new_pos) {
@@ -122,6 +139,33 @@ void LayerManager::Hide(unsigned int id) {
 	if (pos != layer_stack_.end()) {
 		layer_stack_.erase(pos);
 	}
+}
+
+Layer* LayerManager::FindLayerByPosition(Vector2D<int> pos, unsigned int exclude_id) const {
+	auto pred = [pos, exclude_id](Layer* layer) {
+		if (layer->ID() == exclude_id) {
+			return false;
+		}
+
+		const auto& window = layer->GetWindow();
+		
+		if (!window) {
+			return false;
+		}
+
+		const auto window_pos = layer->GetPosition();
+		const auto window_end_pos = window_pos + window->Size();
+		return window_pos.x <= pos.x && pos.x < window_end_pos.x && window_pos.y <= pos.y && pos.y <= window_end_pos.y;
+	};
+
+	// rbegin() and rend() represent reverse begin() and end(). begin of vector from opposite direction.
+	auto iterator = std::find_if(layer_stack_.rbegin(), layer_stack_.rend(), pred);
+
+	if (iterator == layer_stack_.rend()) {
+		return nullptr;
+	}
+
+	return *iterator;
 }
 
 Layer* LayerManager::FindLayer(unsigned int id) {
