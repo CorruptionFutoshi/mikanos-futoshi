@@ -30,4 +30,10 @@ void SetCodeSegment(SegmentDescriptor& desc, DescriptorType type,
 void SetDataSegment(SegmentDescriptor& desc, DescriptorType type, 
 	            unsigned int descriptor_privilege_level, uint32_t base, uint32_t limit);
 
+// 3-15 bit of segment selector(value that written in segment register) represent index of GDT.
+const uint16_t kKernelCS = 1 << 3;
+const uint16_t kKernelSS = 2 << 3;
+const uint16_t kKernelIDS = 0;
+
 void SetupSegments();
+void InitializeSegmentation();

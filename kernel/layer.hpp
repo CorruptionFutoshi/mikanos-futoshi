@@ -59,3 +59,5 @@ class LayerManager {
 
 // extern represent that use global variable declared in other file. 
 extern LayerManager* layer_manager;
+
+void InitializeLayer();

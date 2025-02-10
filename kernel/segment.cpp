@@ -41,3 +41,9 @@ void SetupSegments() {
 	LoadGDT(sizeof(gdt) - 1, reinterpret_cast<uintptr_t>(&gdt[0]));
 }
 
+void InitializeSegmentation() {
+	SetupSegments();
+
+	SetDSAll(kKernelIDS);
+	SetCSSS(kKernelCS, kKernelSS);
+}

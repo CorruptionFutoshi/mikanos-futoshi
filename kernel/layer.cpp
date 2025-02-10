@@ -1,6 +1,8 @@
 #include "layer.hpp"
 
 #include <algorithm>
+#include "console.hpp"
+#include "logger.hpp"
 
 Layer::Layer(unsigned int id) : id_{id} {
 }
@@ -115,6 +117,10 @@ void LayerManager::UpDown(unsigned int id, int new_height) {
 		Hide(id);
 		return;
 	}
+	
+	if (new_height > layer_stack_.size()) {
+		new_height = layer_stack_.size();
+	}
 
 	auto layer = FindLayer(id);
 	auto old_pos = std::find(layer_stack_.begin(), layer_stack_.end(), layer);
@@ -126,8 +132,11 @@ void LayerManager::UpDown(unsigned int id, int new_height) {
 		return;
 	}
 
+	if (new_pos == layer_stack_.end()) {
+		--new_pos;
+	}
+
 	layer_stack_.erase(old_pos);
-	new_pos = layer_stack_.begin() + std::min<size_t>(static_cast<size_t>(new_height), layer_stack_.size() - 1);
 	// first prameter of insert() is not index, it's iterator. so if first parameter is 2, insert layer as second element.
 	layer_stack_.insert(new_pos, layer);
 }
@@ -189,4 +198,40 @@ Layer* LayerManager::FindLayer(unsigned int id) {
 	return it->get();
 }
 
+namespace {
+	FrameBuffer* screen;
+}
+
 LayerManager* layer_manager;
+
+void InitializeLayer() {
+	const auto screen_size = ScreenSize();
+
+	auto bgwindow = std::make_shared<Window>(screen_size.x, screen_size.y, screen_config.pixel_format);
+	DrawDesktop(*bgwindow->Writer());
+
+	auto console_window = std::make_shared<Window>(Console::kColumns * 8, Console::kRows * 16, screen_config.pixel_format);
+	console->SetWindow(console_window);
+
+	screen = new FrameBuffer;
+	 
+	if (auto err = screen->Initialize(screen_config)) {
+		Log(kError, "failed to initialize frame buffer: %s at %s:%d\n", err.Name(), err.File(), err.Line());
+		exit(1);
+	}
+
+	layer_manager = new LayerManager;
+	layer_manager->SetScreen(screen);
+
+	auto bglayer_id = layer_manager->NewLayer()
+		.SetWindow(bgwindow)
+		.Move({0, 0})
+		.ID();
+	console->SetLayerID(layer_manager->NewLayer()
+		.SetWindow(console_window)
+		.Move({0, 0})
+		.ID());
+	
+	layer_manager->UpDown(bglayer_id, 0);
+	layer_manager->UpDown(console->LayerID(), 1);
+}

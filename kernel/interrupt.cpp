@@ -1,4 +1,6 @@
 #include "interrupt.hpp"
+#include "asmfunc.h"
+#include "segment.hpp"
 
 std::array<InterruptDescriptor, 256> idt;
 
@@ -16,4 +18,29 @@ void SetIDTEntry(InterruptDescriptor& desc,
 void NotifyEndOfInterrupt() {
 	volatile auto end_of_interrupt = reinterpret_cast<uint32_t*>(0xfee000b0);
 	*end_of_interrupt = 0;
+}
+
+namespace {
+	// std::deque is doubie-ended queue. can access by index.
+	// can use push_front, push_back(), pop_front(), pop_back().
+	// to use as queue, use push_back() and pop_front()
+	// to use as stack, use push_back() and pop_back()
+	// std::queue use std::deque inside, in default.
+	std::deque<Message>* msg_queue;
+
+	__attribute__((interrupt))
+	void IntHandlerXHCI(InterruptFrame* frame) {
+		// Message{Message::kInterruptXHCI} is initializer list. Message struct has only one field, so we can initialize with this code.
+		msg_queue->push_back(Message{Message::kInterruptXHCI});
+		NotifyEndOfInterrupt();
+	}
+}
+
+void InitializeInterrupt(std::deque<Message>* msg_queue) {
+	// :: represent global scope. so global scope msg_queue is assigned msg_queue of this parameter.
+	::msg_queue = msg_queue;
+
+	SetIDTEntry(idt[InterruptVector::kXHCI], MakeIDTAttr(DescriptorType::kInterruptGate, 0),
+		    reinterpret_cast<uint64_t>(IntHandlerXHCI), kKernelCS);
+	LoadIDT(sizeof(idt) - 1, reinterpret_cast<uintptr_t>(&idt[0]));
 }

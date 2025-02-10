@@ -2,8 +2,10 @@
 
 #include <array>
 #include <cstdint>
+#include <deque>
 
 #include "x86_descriptor.hpp"
+#include "message.hpp"
 
 // union is type that all field share same memory.
 // __attribute__((packed)) tell compiler that make between each field's interval zero. 
@@ -65,4 +67,4 @@ struct InterruptFrame {
 
 void NotifyEndOfInterrupt();
 
-
+void InitializeInterrupt(std::deque<Message>* msg_queue);

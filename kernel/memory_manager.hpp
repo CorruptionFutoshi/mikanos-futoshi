@@ -4,6 +4,7 @@
 #include <limits>
 
 #include "error.hpp"
+#include "memory_map.hpp"
 
 namespace {
 	// it is User-Defined Literals. usage: 8_KiB. (it is 8192)
@@ -64,4 +65,4 @@ class BitmapMemoryManager {
 		void SetBit(FrameID frame, bool allocated);
 };
 
-Error InitializeHeap(BitmapMemoryManager& memory_manager);
+void InitializeMemoryManager(const MemoryMap& memory_map);
