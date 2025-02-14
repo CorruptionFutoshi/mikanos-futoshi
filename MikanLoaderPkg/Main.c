@@ -438,12 +438,20 @@ EFI_STATUS EFIAPI UefiMain(
 			Halt();
 	}
 	
+	VOID* acpi_table = NULL;
+	for (UINTN i = 0; i < system_table->NumberOfTableEntries; ++i) {
+		if (CompareGuid(&gEfiAcpiTableGuid, &system_table->ConfigurationTable[i].VendorGuid)) {
+			acpi_table = system_table->ConfigurationTable[i].VendorTable;
+			break;
+		}
+	}
+
 	// this is type prototype. definition of c language method
-	typedef void EntryPointType(const struct FrameBufferConfig*, const struct MemoryMap*);
+	typedef void EntryPointType(const struct FrameBufferConfig*, const struct MemoryMap*, const VOID*);
 	EntryPointType* entry_point = (EntryPointType*)entry_addr;
 	// after exit bootservices, using Print method that is one of bootservices cause freeze 
 	// Print(L"korekara kernel yobidasi");
-	entry_point(&config, &memmap);
+	entry_point(&config, &memmap, acpi_table);
 
 	Print(L"All done\n");
 

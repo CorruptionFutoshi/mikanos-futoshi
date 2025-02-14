@@ -23,6 +23,8 @@
 #include "memory_manager.hpp"
 #include "window.hpp"
 #include "layer.hpp"
+#include "timer.hpp"
+#include "acpi.hpp"
 
 // in c++ there is a placement new declaration in default
 // this is called placement new. it allocate memory area specified by parameter.
@@ -76,7 +78,8 @@ std::deque<Message>* main_queue;
 // as you already know, uint8_t is type of content of array.
 alignas(16) uint8_t kernel_main_stack[1024 * 1024];
 
-extern "C" void KernelMainNewStack(const FrameBufferConfig& frame_buffer_config_ref, const MemoryMap& memory_map_ref){
+extern "C" void KernelMainNewStack(const FrameBufferConfig& frame_buffer_config_ref,
+	       			   const MemoryMap& memory_map_ref, const acpi::RSDP& acpi_table){
 	MemoryMap memory_map{memory_map_ref};
 
 	InitializeGraphics(frame_buffer_config_ref);
@@ -99,12 +102,20 @@ extern "C" void KernelMainNewStack(const FrameBufferConfig& frame_buffer_config_
 	InitializeMouse();
 	layer_manager->Draw({{0, 0}, ScreenSize()});
 
+	acpi::Initialize(acpi_table);
+	InitializeLAPICTimer(*main_queue);
+
+	timer_manager->AddTimer(Timer(200, 2));
+	timer_manager->AddTimer(Timer(600, -1));
+
 	char str[128];
-	unsigned int count = 0;
 	
 	while (true) {
-		++count;
-		sprintf(str, "%010u", count);
+		__asm__("cli");
+		const auto tick = timer_manager->CurrentTick();
+		__asm__("sti");
+
+		sprintf(str, "%010lu", tick);
 		FillRectangle(*main_window->Writer(), {24, 28}, {8 * 10, 16}, {0xc6, 0xc6, 0xc6});
 		WriteString(*main_window->Writer(), {24, 28}, str, {0, 0, 0});
 		layer_manager->Draw(main_window_layer_id);
@@ -113,9 +124,9 @@ extern "C" void KernelMainNewStack(const FrameBufferConfig& frame_buffer_config_
 		__asm__("cli");
 
 		if (main_queue->size() == 0) {
+			// sti represent that set interrupt flag to 1. allow interrupt.
 			// use \n\t to thw order in one line.
-			//__asm__("sti\n\thlt");
-			__asm__("sti");
+			__asm__("sti\n\thlt");
 			continue;
 		}
 
@@ -127,6 +138,14 @@ extern "C" void KernelMainNewStack(const FrameBufferConfig& frame_buffer_config_
 		switch (msg.type) {
 			case Message::kInterruptXHCI:
 				usb::xhci::ProcessEvents();
+				break;
+			case Message::kTimerTimeout:
+				printk("Timer: timeout = %lu, value = %d\n", msg.arg.timer.timeout, msg.arg.timer.value);
+
+				if (msg.arg.timer.value > 0) {
+					timer_manager->AddTimer(Timer(msg.arg.timer.timeout + 100, msg.arg.timer.value + 1));
+				}
+
 				break;
 			default:
 				Log(kError, "Unkenown message type: %d\n", msg.type);
