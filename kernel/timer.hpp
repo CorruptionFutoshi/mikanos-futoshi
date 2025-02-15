@@ -43,5 +43,9 @@ class TimerManager {
 };
 
 extern TimerManager* timer_manager;
+// count number per 1 seconds.
+extern unsigned long lapic_timer_freq;
+// frequency of Tick() per 1 seconds;
+const int kTimerFreq = 100;
 
 void LAPICTimerOnInterrupt();

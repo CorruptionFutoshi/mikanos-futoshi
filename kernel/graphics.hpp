@@ -1,11 +1,20 @@
 #pragma once
 
 #include <algorithm>
+#include <cstdint>
 #include "frame_buffer_config.hpp"
 
 struct PixelColor {
 	uint8_t r, g, b;
 };
+
+constexpr PixelColor ToColor(uint32_t c) {
+	return {
+		static_cast<uint8_t>((c >> 16) & 0xff),
+		static_cast<uint8_t>((c >> 8) & 0xff),
+		static_cast<uint8_t>(c & 0xff),
+	};
+}
 
 // lhs is left hand side. rhs is right hand side.
 inline bool operator==(const PixelColor& lhs, const PixelColor& rhs) {

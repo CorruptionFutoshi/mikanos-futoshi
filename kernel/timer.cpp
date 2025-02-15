@@ -1,4 +1,5 @@
 #include "timer.hpp"
+#include "acpi.hpp"
 #include "interrupt.hpp"
 
 namespace {
@@ -11,11 +12,22 @@ namespace {
 
 void InitializeLAPICTimer(std::deque<Message>& msg_deque) {
 	timer_manager = new TimerManager(msg_deque);
+
+	divide_config = 0x1011;
+	lvt_timer = 0b001 << 16;
+
+	StartLAPICTimer();
+	acpi::WaitMilliseconds(100);
+	const auto elapsed = LAPICTimerElapsed();
+	StopLAPICTimer();
+
+	lapic_timer_freq = static_cast<unsigned long>(elapsed) * 10;
+
 	divide_config = 0x1011;
 	// i don't know why or 32. to prevent interrupt, should we change 0 to 1 in 16th bit? why change 0 to 1 in 6th bit.
 	// lvt_timer = (0b001 << 16) | 32;
 	lvt_timer = (0b010 << 16) | InterruptVector::kLAPICTimer;
-	initial_count = 0x1000000u;
+	initial_count = lapic_timer_freq / kTimerFreq;
 }
 
 Timer::Timer(unsigned long timeout, int value) : timeout_{timeout}, value_{value} {}
@@ -60,6 +72,7 @@ void TimerManager::Tick() {
 }
 
 TimerManager* timer_manager;
+unsigned long lapic_timer_freq;
 
 void LAPICTimerOnInterrupt() {
 	timer_manager->Tick();
