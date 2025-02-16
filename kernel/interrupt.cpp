@@ -39,7 +39,6 @@ namespace {
 	__attribute__((interrupt))
 	void IntHandlerLAPICTimer(InterruptFrame* frame) {
 		LAPICTimerOnInterrupt();
-		NotifyEndOfInterrupt();
 	}
 }
 
