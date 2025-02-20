@@ -2,6 +2,7 @@
 #include "asmfunc.h"
 #include "segment.hpp"
 #include "timer.hpp"
+#include "task.hpp"
 
 std::array<InterruptDescriptor, 256> idt;
 
@@ -27,12 +28,12 @@ namespace {
 	// to use as queue, use push_back() and pop_front()
 	// to use as stack, use push_back() and pop_back()
 	// std::queue use std::deque inside, in default.
-	std::deque<Message>* msg_queue;
+	// std::deque<Message>* msg_queue;
 
 	__attribute__((interrupt))
 	void IntHandlerXHCI(InterruptFrame* frame) {
 		// Message{Message::kInterruptXHCI} is initializer list. Message struct has only one field, so we can initialize with this code.
-		msg_queue->push_back(Message{Message::kInterruptXHCI});
+		task_manager->SendMessage(1, Message{Message::kInterruptXHCI});
 		NotifyEndOfInterrupt();
 	}
 
@@ -42,9 +43,9 @@ namespace {
 	}
 }
 
-void InitializeInterrupt(std::deque<Message>* msg_queue) {
+void InitializeInterrupt() {
 	// :: represent global scope. so global scope msg_queue is assigned msg_queue of this parameter.
-	::msg_queue = msg_queue;
+	// ::msg_queue = msg_queue;
 
 	SetIDTEntry(idt[InterruptVector::kXHCI], MakeIDTAttr(DescriptorType::kInterruptGate, 0),
 		    reinterpret_cast<uint64_t>(IntHandlerXHCI), kKernelCS);

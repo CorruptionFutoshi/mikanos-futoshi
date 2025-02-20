@@ -157,13 +157,6 @@ void TaskB(uint64_t task_id, int64_t data) {
 	}
 }
 
-void TaskIdle(uint64_t task_id, int64_t data) {
-	printk("TaskIdle: task_id=%lu, data=%lx\n", task_id, data);
-	while (true) __asm__("hlt");
-}
-
-std::deque<Message>* main_queue;
-
 // alignas guarantee that start address of this variable is multiple of 16.
 // as you already know, uint8_t is type of content of array.
 alignas(16) uint8_t kernel_main_stack[1024 * 1024];
@@ -181,36 +174,35 @@ extern "C" void KernelMainNewStack(const FrameBufferConfig& frame_buffer_config_
 	InitializeSegmentation();
 	InitializePaging();
 	InitializeMemoryManager(memory_map);
-	::main_queue = new std::deque<Message>(32);
-	InitializeInterrupt(main_queue);
+	InitializeInterrupt();
 	
 	InitializePCI();
-	usb::xhci::Initialize();
 
 	InitializeLayer();
 	InitializeMainWindow();
 	InitializeTextWindow();
 	InitializeTaskBWindow();
-	InitializeMouse();
 	layer_manager->Draw({{0, 0}, ScreenSize()});
 
 	acpi::Initialize(acpi_table);
-	InitializeLAPICTimer(*main_queue);
-
-	InitializeKeyboard(*main_queue);
+	InitializeLAPICTimer();
 
 	const int kTextboxCursorTimer = 1;
 	const int kTimer05Sec = static_cast<int>(kTimerFreq * 0.5);
-	__asm__("cli");
 	// first parameter of Timer constructor is timeout;
 	timer_manager->AddTimer(Timer{kTimer05Sec, kTextboxCursorTimer});
-	__asm__("sti");
 	bool textbox_cursor_visible = false;
 
 	InitializeTask();
-	task_manager->NewTask().InitContext(TaskB, 45);
-	task_manager->NewTask().InitContext(TaskIdle, 0xdeadbeef);
-	task_manager->NewTask().InitContext(TaskIdle, 0xcafebabe);
+	Task& main_task = task_manager->CurrentTask();
+	const uint64_t taskb_id = task_manager->NewTask()
+		.InitContext(TaskB, 45)
+		.Wakeup()
+		.ID();
+
+	usb::xhci::Initialize();
+	InitializeKeyboard();
+	InitializeMouse();
 
 	char str[128];
 	
@@ -226,27 +218,30 @@ extern "C" void KernelMainNewStack(const FrameBufferConfig& frame_buffer_config_
 
 		// cli represent that set interrupt flag to 0. it means don't receive interrupt.
 		__asm__("cli");
+	
+		auto msg = main_task.ReceiveMessage();
 
-		if (main_queue->size() == 0) {
+		// nullptr of std::optional type is treated as false.
+		if (!msg) {
+			main_task.Sleep();
+			__asm__("sti");
 			// sti represent that set interrupt flag to 1. allow interrupt.
 			// use \n\t to two order in one line.
-			__asm__("sti\n\thlt");
+			// __asm__("sti\n\thlt");
 			continue;
 		}
 
-		Message msg = main_queue->front();
-		main_queue->pop_front();
 		// sti is Set Interrupt Flag. it activate interrupt.
 		__asm__("sti");
 
-		switch (msg.type) {
+		switch (msg->type) {
 			case Message::kInterruptXHCI:
 				usb::xhci::ProcessEvents();
 				break;
 			case Message::kTimerTimeout:
-				if (msg.arg.timer.value == kTextboxCursorTimer) {
+				if (msg->arg.timer.value == kTextboxCursorTimer) {
 					__asm__("cli");
-					timer_manager->AddTimer(Timer{msg.arg.timer.timeout + kTimer05Sec, kTextboxCursorTimer});
+					timer_manager->AddTimer(Timer{msg->arg.timer.timeout + kTimer05Sec, kTextboxCursorTimer});
 					__asm__("sti");
 					textbox_cursor_visible = !textbox_cursor_visible;
 					DrawTextCursor(textbox_cursor_visible);
@@ -255,10 +250,17 @@ extern "C" void KernelMainNewStack(const FrameBufferConfig& frame_buffer_config_
 
 				break;
 			case Message::kKeyPush:
-				InputTextWindow(msg.arg.keyboard.ascii);
+				InputTextWindow(msg->arg.keyboard.ascii);
+
+				if (msg->arg.keyboard.ascii == 's') {
+					printk("sleep TaskB: %s\n", task_manager->Sleep(taskb_id).Name());
+				} else if (msg->arg.keyboard.ascii == 'w') {
+					printk("wakeup TaskB: %s\n", task_manager->Wakeup(taskb_id).Name());
+				}
+
 				break;
 			default:
-				Log(kError, "Unkenown message type: %d\n", msg.type);
+				Log(kError, "Unkenown message type: %d\n", msg->type);
 		}
 	}
 }

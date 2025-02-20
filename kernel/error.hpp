@@ -27,6 +27,7 @@ class Error {
 			kNoWaiter,
 			kNoPCIMSI,
 			kUnknownPixelFormat,
+			kNoSuchTask,
 			kTest1,
 			kTest2,
 			kTest3,
@@ -58,6 +59,7 @@ class Error {
 			"kNoWaiter",
 			"kNoPCIMSI",
 			"kUnknownPixelFormat",
+			"kNoSuchTask",
 			"kTest1",
 			"kTest2",
 			"kTest3"
