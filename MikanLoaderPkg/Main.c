@@ -247,7 +247,7 @@ EFI_STATUS EFIAPI UefiMain(
 		EFI_HANDLE image_handle,
 		EFI_SYSTEM_TABLE* system_table){
 	EFI_STATUS status;
-	Print(L"Saiko no Egao de Kirinukeruyo\n");
+	Print(L"Saiko no Egao de Kirinukeruyo in Loader\n");
 
 	// save memory map to file start	
 	CHAR8 memmap_buf[4096 * 4];
