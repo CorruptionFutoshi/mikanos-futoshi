@@ -214,8 +214,9 @@ void CalcLoadAddressRange(Elf64_Ehdr* ehdrptr, UINT64* firstptr, UINT64* lastptr
 	*lastptr = 0;
 
 	// declare i as Elf64_Half (not as UINT64) because e_phnum field declare as uint16_t( equal Elf64_Half) 
-	for (Elf64_Half i = 0; i < ehdrptr->e_phnum; i++){
+	for (Elf64_Half i = 0; i < ehdrptr->e_phnum; ++i){
 		if (phdrptr[i].p_type != PT_LOAD) continue;
+		if (i == 0x00000006) continue;
 		// virtual address require real address? If real address specified with virtual address is not empty, i wonder what will happen. 
 		*firstptr = MIN(*firstptr, phdrptr[i].p_vaddr);
 		*lastptr = MAX(*lastptr, phdrptr[i].p_vaddr + phdrptr[i].p_memsz);
@@ -227,7 +228,7 @@ void CopyLoadSegments(Elf64_Ehdr* ehdrptr) {
 	
 	for(Elf64_Half i = 0; i<ehdrptr->e_phnum; ++i) {
 		if(phdrptr[i].p_type != PT_LOAD)  continue;
-		
+		if(i == 0x00000006) continue;		
 		// base point of p_offset is head of Elf file, equal ehdrptr
 		UINT64 segmentptr = (UINT64)ehdrptr + phdrptr[i].p_offset;
 		// VOID means all like var in Java. first parameter represent place paste, second parameter represent plase be copied, third parameter represent size
@@ -378,7 +379,7 @@ EFI_STATUS EFIAPI UefiMain(
 
 	UINTN num_pages = (kernel_last_addr - kernel_first_addr + 0xfff) / 0x1000;
 	status = gBS->AllocatePages(AllocateAddress, EfiLoaderData, num_pages, &kernel_first_addr);
-
+	
 	if(EFI_ERROR(status)) {
 		Print(L"failed to allocate pages: %r\n", status);
 		Halt();
