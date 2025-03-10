@@ -28,6 +28,7 @@
 #include "keyboard.hpp"
 #include "task.hpp"
 #include "terminal.hpp"
+#include "fat.hpp"
 
 // in c++ there is a placement new declaration in default
 // this is called placement new. it allocate memory area specified by parameter.
@@ -130,7 +131,7 @@ void InputTextWindow(char c) {
 alignas(16) uint8_t kernel_main_stack[1024 * 1024];
 
 extern "C" void KernelMainNewStack(const FrameBufferConfig& frame_buffer_config_ref,
-	       			   const MemoryMap& memory_map_ref, const acpi::RSDP& acpi_table){
+	       			   const MemoryMap& memory_map_ref, const acpi::RSDP& acpi_table, void* volume_image){
 	MemoryMap memory_map{memory_map_ref};
 
 	InitializeGraphics(frame_buffer_config_ref);
@@ -144,6 +145,7 @@ extern "C" void KernelMainNewStack(const FrameBufferConfig& frame_buffer_config_
 	InitializeMemoryManager(memory_map);
 	InitializeInterrupt();
 	
+	fat::Initialize(volume_image);
 	InitializePCI();
 
 	InitializeLayer();

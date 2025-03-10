@@ -242,6 +242,76 @@ void CopyLoadSegments(Elf64_Ehdr* ehdrptr) {
 
 }
 	
+EFI_STATUS ReadFile(EFI_FILE_PROTOCOL* file, VOID** buffer) {
+	EFI_STATUS status;
+
+	// EFI_FILE_PROTOCOL.GetInfo() set EFI_FILE_INFO to fourth parameter. but last field of EFI_FILE_INFO type is filename[], and default is empty. so add 12 CHAR16, \ k e r n e l . e l f + null character 
+	UINTN file_info_size = sizeof(EFI_FILE_INFO) + sizeof(CHAR16) * 12;
+	// in c, array variable is treated as pointer of first content of its array. so later we can cast file_info_buffer to EFI_FILE_INFO* type. there are many times manipulate object per byte, so declear as UINT8. for example, file_info_size is per byte, so if declare as UINT64, we should write UINT64 file_info_buffer[file_info_size / 8]
+	UINT8 file_info_buffer[file_info_size];
+	status = file->GetInfo(file, &gEfiFileInfoGuid, &file_info_size, file_info_buffer);
+
+	if (EFI_ERROR(status)){
+		return status;
+	}
+
+	EFI_FILE_INFO* file_infoptr=(EFI_FILE_INFO*)file_info_buffer;
+	UINTN kernel_file_size = file_infoptr->FileSize;
+
+//	EFI_PHYSICAL_ADDRESS kernel_base_addr = 0x110000;
+	// first parameter as way of allocate memory, second parameter as type of memory area, third parameter as size, fourth parameter as pointer of allocated memory area. third parameter is number of page. in UEFI, 1 page equall 4KiB. fourth parameter wont change beacause AllocateAddress mode.
+//	status = gBS->AllocatePages(
+//			AllocateAddress, EfiLoaderData,
+//	 		(kernel_file_size + 0xfff) / 0x1000, &kernel_base_addr);
+
+//	if (EFI_ERROR(status)){
+//		Print(L"failed to allocate pages: %r\n", status);	
+//		Halt();	
+//	}
+
+	// this method allocate memory area like AllocatePages, difference is that per byte, not page, and cant specify pointer of allocated memory area. third parameter is just for return value. so dont need initialize.
+	status = gBS->AllocatePool(EfiLoaderData, kernel_file_size, buffer);
+
+	if(EFI_ERROR(status)){
+		return status;
+	}
+
+	// first parameter as place read, second parameter as size of read, third parameter is place write
+	return file->Read(file, &kernel_file_size, *buffer);
+}
+
+EFI_STATUS OpenBlockIoProtocolForLoadedImage(EFI_HANDLE image_handle, EFI_BLOCK_IO_PROTOCOL** block_io) {
+	EFI_STATUS status;
+	EFI_LOADED_IMAGE_PROTOCOL* loaded_image;
+
+	status = gBS->OpenProtocol(image_handle, &gEfiLoadedImageProtocolGuid,
+			(VOID**)&loaded_image, image_handle, NULL, EFI_OPEN_PROTOCOL_BY_HANDLE_PROTOCOL);
+
+	if (EFI_ERROR(status)) {
+		return status;
+	}
+
+	status = gBS->OpenProtocol(loaded_image->DeviceHandle, &gEfiBlockIoProtocolGuid,
+			(VOID**)block_io, image_handle, NULL, EFI_OPEN_PROTOCOL_BY_HANDLE_PROTOCOL);
+
+	return status;
+}
+
+EFI_STATUS ReadBlocks(EFI_BLOCK_IO_PROTOCOL* block_io, UINT32 media_id, UINTN read_bytes, VOID** buffer) {
+	EFI_STATUS status;
+
+	status = gBS->AllocatePool(EfiLoaderData, read_bytes, buffer);
+
+	if (EFI_ERROR(status)) {
+		return status;
+	}
+
+	status = block_io->ReadBlocks(block_io, media_id, 0, read_bytes, *buffer);
+
+	return status;
+}
+
+
 // *system_table is pointer of EFI_SYSTEM_TABLE variable
 // EFI_HANDLE is handle that specify various resource managed by UEFI. in this case, image_handle represent this application.
 EFI_STATUS EFIAPI UefiMain(
@@ -329,44 +399,11 @@ EFI_STATUS EFIAPI UefiMain(
 		Halt();
 	}
 
-	// EFI_FILE_PROTOCOL.GetInfo() set EFI_FILE_INFO to fourth parameter. but last field of EFI_FILE_INFO type is filename[], and default is empty. so add 12 CHAR16, \ k e r n e l . e l f + null character 
-	UINTN file_info_size = sizeof(EFI_FILE_INFO) + sizeof(CHAR16) * 12;
-	// in c, array variable is treated as pointer of first content of its array. so later we can cast file_info_buffer to EFI_FILE_INFO* type. there are many times manipulate object per byte, so declear as UINT8. for example, file_info_size is per byte, so if declare as UINT64, we should write UINT64 file_info_buffer[file_info_size / 8]
-	UINT8 file_info_buffer[file_info_size];
-	status = kernel_fileptr->GetInfo(kernel_fileptr, &gEfiFileInfoGuid, &file_info_size, file_info_buffer);
-
-	if (EFI_ERROR(status)){
-		Print(L"failed to get file '\\kernel.elf'  information: %r\n", status);	
-		Halt();
-	}
-
-	EFI_FILE_INFO* file_infoptr=(EFI_FILE_INFO*)file_info_buffer;
-	UINTN kernel_file_size = file_infoptr->FileSize;
-
-//	EFI_PHYSICAL_ADDRESS kernel_base_addr = 0x110000;
-	// first parameter as way of allocate memory, second parameter as type of memory area, third parameter as size, fourth parameter as pointer of allocated memory area. third parameter is number of page. in UEFI, 1 page equall 4KiB. fourth parameter wont change beacause AllocateAddress mode.
-//	status = gBS->AllocatePages(
-//			AllocateAddress, EfiLoaderData,
-//	 		(kernel_file_size + 0xfff) / 0x1000, &kernel_base_addr);
-
-//	if (EFI_ERROR(status)){
-//		Print(L"failed to allocate pages: %r\n", status);	
-//		Halt();	
-//	}
-
 	VOID* kernel_bufferptr;
-	// this method allocate memory area like AllocatePages, difference is that per byte, not page, and cant specify pointer of allocated memory area
-	status = gBS->AllocatePool(EfiLoaderData, kernel_file_size, &kernel_bufferptr);
-
-	if(EFI_ERROR(status)){
-		Print(L"failed to allocate pool: %r\n", status);
-	}
-
-	// first parameter as place read, second parameter as size of read, third parameter is place write
-	status = kernel_fileptr->Read(kernel_fileptr, &kernel_file_size, kernel_bufferptr);
+	status = ReadFile(kernel_fileptr, &kernel_bufferptr);
 	
 	if (EFI_ERROR(status)){
-		Print(L"failed to read file '\\kernel.elf' : %r\n", status);
+		Print(L"error : %r", status);
 		Halt();	
 	}
 
@@ -395,6 +432,45 @@ EFI_STATUS EFIAPI UefiMain(
 		Halt();
 	}
 	
+	VOID* volume_image;
+
+	EFI_FILE_PROTOCOL* volume_file;
+	status = root_dirptr->Open(root_dirptr, &volume_file, L"\\fat_disk", EFI_FILE_MODE_READ, 0);
+
+	if (status == EFI_SUCCESS) {
+		status = ReadFile(volume_file, &volume_image);
+
+		if (EFI_ERROR(status)) {
+			Print(L"failed to read volume file: &r", status);
+			Halt();
+		}
+	} else {
+		EFI_BLOCK_IO_PROTOCOL* block_io;
+		status = OpenBlockIoProtocolForLoadedImage(image_handle, &block_io);
+
+		if (EFI_ERROR(status)) {
+			Print(L"failed to open Block I/O Protocol: %r\n", status);
+			Halt();
+		}
+
+		EFI_BLOCK_IO_MEDIA* media = block_io->Media;
+		UINTN volume_bytes = (UINTN)media->BlockSize * (media->LastBlock + 1);
+
+		if (volume_bytes > 16 * 1024 * 1024) {
+			volume_bytes = 16 *1024 * 1024;
+		}
+		
+		Print(L"Reading %lu bytes (Present %d, BlockSize %u, LastBlock %u)\n",
+				volume_bytes, media->MediaPresent, media->BlockSize, media->LastBlock);
+
+		status = ReadBlocks(block_io, media->MediaId, volume_bytes, &volume_image);
+
+		if (EFI_ERROR(status)) {
+			Print(L"failed to read blocks: %r\n", status);
+			Halt();
+		}
+	}
+
 	status = GetMemoryMap(&memmap);
 	
 	if (EFI_ERROR(status)){
@@ -448,11 +524,11 @@ EFI_STATUS EFIAPI UefiMain(
 	}
 
 	// this is type prototype. definition of c language method
-	typedef void EntryPointType(const struct FrameBufferConfig*, const struct MemoryMap*, const VOID*);
+	typedef void EntryPointType(const struct FrameBufferConfig*, const struct MemoryMap*, const VOID*, VOID*);
 	EntryPointType* entry_point = (EntryPointType*)entry_addr;
 	// after exit bootservices, using Print method that is one of bootservices cause freeze 
 	// Print(L"korekara kernel yobidasi");
-	entry_point(&config, &memmap, acpi_table);
+	entry_point(&config, &memmap, acpi_table, volume_image);
 
 	Print(L"All done\n");
 
