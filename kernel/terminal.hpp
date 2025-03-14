@@ -5,6 +5,7 @@
 #include "window.hpp"
 #include "task.hpp"
 #include "layer.hpp"
+#include "fat.hpp"
 
 class Terminal {
 	public:
@@ -30,7 +31,9 @@ class Terminal {
 		void Scroll1();
 
 		void ExecuteLine();
+		Error ExecuteFile(const fat::DirectoryEntry& file_entry, char* command, char* first_arg);
 		void Print(const char* s);
+		void Print(char c);
 
 		std::deque<std::array<char, kLineMax>> cmd_history_{};
 		int cmd_history_index_{-1};

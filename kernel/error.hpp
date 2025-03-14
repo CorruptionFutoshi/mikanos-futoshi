@@ -28,6 +28,8 @@ class Error {
 			kNoPCIMSI,
 			kUnknownPixelFormat,
 			kNoSuchTask,
+			kInvalidFormat,
+			kFrameTooSmall,
 			kTest1,
 			kTest2,
 			kTest3,
@@ -60,6 +62,8 @@ class Error {
 			"kNoPCIMSI",
 			"kUnknownPixelFormat",
 			"kNoSuchTask",
+			"kInvalidFormat",
+			"kFrameTooSmall",
 			"kTest1",
 			"kTest2",
 			"kTest3"

@@ -6,7 +6,7 @@
 typedef uintptr_t	Elf64_Addr;
 typedef uint64_t	Elf64_Off;
 typedef uint16_t	Elf64_Half;
-typedef uint16_t	Elf64_Word;
+typedef uint32_t	Elf64_Word;
 typedef int32_t		Elf64_Sword;
 typedef uint64_t	Elf64_Xword;
 typedef int64_t		Elf64_Sxword;
@@ -31,6 +31,12 @@ typedef struct {
 	Elf64_Half	e_shnum;
 	Elf64_Half	e_shstrndx;
 } Elf64_Ehdr;
+
+#define ET_NONE	0
+#define ET_REL	1
+#define	ET_EXEC	2
+#define	ET_DYN	3
+#define	ET_CORE	4
 
 // this struct Elf64_Phdr represent program header of 64bit Elf. program header of 64bit Elf is array in Elf
 // one program header represent one segment

@@ -157,7 +157,7 @@ extern "C" void KernelMainNewStack(const FrameBufferConfig& frame_buffer_config_
 	InitializeLAPICTimer();
 
 	const int kTextboxCursorTimer = 1;
-	const int kTimer05Sec = static_cast<int>(kTimerFreq * 0.5);
+	const int kTimer05Sec = static_cast<int>(kTimerFreq * 50);
 	// first parameter of Timer constructor is timeout;
 	timer_manager->AddTimer(Timer{kTimer05Sec, kTextboxCursorTimer});
 	bool textbox_cursor_visible = false;
