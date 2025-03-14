@@ -10,7 +10,7 @@ then
 	DISK_IMG=./mikanos.img
 fi
 
-if [ "$MIKANOS_DIR" = ""]
+if [ "$MIKANOS_DIR" = "" ]
 then
 	# $# means number of parameters. -lt means less than
 	if [ $# -lt 1 ]
@@ -36,7 +36,7 @@ fi
 for APP in $(ls "$MIKANOS_DIR/apps")
 do
 	# -f means file or not
-	if [ -f $MIKANOS_DIR/apps/$APP/$APP]
+	if [ -f $MIKANOS_DIR/apps/$APP/$APP ]
 	then
 		sudo cp "$MIKANOS_DIR/apps/$APP/$APP" $MOUNT_POINT/$APPS_DIR
 	fi

@@ -107,6 +107,8 @@ namespace {
 				return { num_4kpages, err };
 			}
 
+			page_map[entry_index].bits.writable = 1;
+
 			if (page_map_level == 1) {
 				--num_4kpages;
 			} else {

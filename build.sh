@@ -12,15 +12,17 @@ do
 	APP_DIR=$(dirname $MK)
 	# basename means extract last word of path
 	APP=$(basename $APP_DIR)
-	make ${Make_OPTS:-} -c $APP_DIR $APP
+	make ${MAKE_OPTS:-} -C $APP_DIR $APP
 done
 
 # if there some declaration and command in same row, command can use declared variables. So dont have to set DISK_IMG and MIKANOS_DIR as parameter. $PWD means current directory
-DISK_IMG=./disk.img MIKANOS_DIR=$PWD $HOME/mikanos-futoshi/devenv/make_mikanos_image.sh
+# DISK_IMG=./disk.img MIKANOS_DIR=$PWD $HOME/mikanos-futoshi/devenv/make_mikanos_image.sh
 
 # ${1:-} means if first parameter is confirmed, its value, else empty
-if [ "${1:-}" = "run"]
+if [ "${1:-}" = "run" ]
 then
 	# execute run_image.sh with parameter ./disk.img
-	$HOME/mikanos-futoshi/devenv/run_image.sh ./disk.img
+	# $HOME/mikanos-futoshi/devenv/run_image.sh ./disk.img
+	
+	MIKANOS_DIR=$PWD $HOME/mikanos-futoshi/devenv/run_mikanos.sh
 fi
