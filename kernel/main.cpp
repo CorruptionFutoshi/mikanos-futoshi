@@ -29,6 +29,7 @@
 #include "task.hpp"
 #include "terminal.hpp"
 #include "fat.hpp"
+#include "syscall.hpp"
 
 // in c++ there is a placement new declaration in default
 // this is called placement new. it allocate memory area specified by parameter.
@@ -143,6 +144,7 @@ extern "C" void KernelMainNewStack(const FrameBufferConfig& frame_buffer_config_
 	InitializeSegmentation();
 	InitializePaging();
 	InitializeMemoryManager(memory_map);
+	InitializeTSS();
 	InitializeInterrupt();
 	
 	fat::Initialize(volume_image);
@@ -157,10 +159,12 @@ extern "C" void KernelMainNewStack(const FrameBufferConfig& frame_buffer_config_
 	InitializeLAPICTimer();
 
 	const int kTextboxCursorTimer = 1;
-	const int kTimer05Sec = static_cast<int>(kTimerFreq * 50);
+	const int kTimer05Sec = static_cast<int>(kTimerFreq * 0.5);
 	// first parameter of Timer constructor is timeout;
 	timer_manager->AddTimer(Timer{kTimer05Sec, kTextboxCursorTimer});
 	bool textbox_cursor_visible = false;
+
+	InitializeSyscall();
 
 	InitializeTask();
 	Task& main_task = task_manager->CurrentTask();

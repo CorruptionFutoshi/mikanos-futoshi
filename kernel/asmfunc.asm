@@ -127,6 +127,8 @@ SwitchContext:
 
 	fxsave [rsi + 0xc0]
 	
+global RestoreContext
+RestoreContext:
 	push qword [rdi + 0x28]
 	push qword [rdi + 0x70]
 	push qword [rdi + 0x10]
@@ -160,3 +162,112 @@ SwitchContext:
 	mov rdi, [rdi + 0x60]
 
 	o64 iret
+
+global CallApp
+CallApp:
+	push rbp
+	mov rbp, rsp
+	push rcx
+	push r9
+	push rdx
+	push r8
+	o64 retf
+
+extern LAPICTimerOnInterrupt
+
+global IntHandlerLAPICTimer
+IntHandlerLAPICTimer:
+	push rbp
+	mov rbp, rsp
+
+	sub rsp, 512
+	fxsave [rsp]
+	push r15
+	push r14
+	push r13
+	push r12
+	push r11
+	push r10
+	push r9
+	push r8
+	push qword [rbp]
+	push qword [rbp + 0x20]
+	push rsi
+	push rdi
+	push rdx
+	push rcs
+	push rbx
+	push rax
+
+	mov ax, fs
+	mov bx, gs
+	mov rcx, cr3
+
+	push rbx
+	push rax
+	push qword [rbp + 0x28]
+	push qword [rbp + 0x10]
+	push rbp
+	push qword [rbp + 0x18]
+	push qword [rbp + 0x08]
+	push rcx
+
+	mov rdi, rsp
+	call LAPICTimerOnInterrupt
+
+	add rsp, 8*8
+	pop rax
+	pop rbx
+	pop rcx
+	pop rdx
+	pop rdi
+	pop rsi
+	add rsp, 16
+	pop r8
+	pop r9
+	pop r10
+	pop r11
+	pop r12
+	pop r13
+	pop r14
+	pop r15
+	fxrstor [rsp]
+
+	mov rsp, rbp
+	pop rbp
+	iretq
+
+global LoadTR
+LoadTR:
+	ltr di
+	ret
+
+global WriteMSR
+WriteMSR:
+	mov rdx, rsi
+	shr rdx, 32
+	mov eax, esi
+	mov ecx, edi
+	wrmsr
+	ret
+
+extern syscall_table
+global SyscallEntry
+SyscallEntry:
+	push rbp
+	push rcx
+	push r11
+
+	mov rxc, r10
+	and eax, 0x7fffffff
+	mov rbp, rsp
+	and rsp, 0xfffffffffffffff0
+
+	call [syacall_table + 8 * eax]
+
+	mov rsp, rbp
+
+	pop r11
+	pop rcx
+	pop rbp
+	o64 sysret
