@@ -1,3 +1,3 @@
 TARGET = rpn
-OBJS = rpn.o syscall.o
+OBJS = rpn.o
 include ../Makefile.elfapp

@@ -165,12 +165,19 @@ RestoreContext:
 
 global CallApp
 CallApp:
+	push rbx
 	push rbp
-	mov rbp, rsp
-	push rcx
-	push r9
+	push r12
+	push r13
+	push r14
+	push r15
+	mov [r9], rsp
+
 	push rdx
 	push r8
+	add rdx, 8
+	push rdx
+	push rcx
 	o64 retf
 
 extern LAPICTimerOnInterrupt
@@ -195,7 +202,7 @@ IntHandlerLAPICTimer:
 	push rsi
 	push rdi
 	push rdx
-	push rcs
+	push rcx
 	push rbx
 	push rax
 
@@ -258,16 +265,35 @@ SyscallEntry:
 	push rcx
 	push r11
 
-	mov rxc, r10
+	push rax
+
+	mov rcx, r10
 	and eax, 0x7fffffff
 	mov rbp, rsp
 	and rsp, 0xfffffffffffffff0
 
-	call [syacall_table + 8 * eax]
+	call [syscall_table + 8 * eax]
 
 	mov rsp, rbp
+
+	pop rsi
+	cmp esi, 0x80000002
+	je .exit
 
 	pop r11
 	pop rcx
 	pop rbp
 	o64 sysret
+
+.exit:
+	mov rsp, rax
+	mov eax, edx
+	
+	pop r15
+	pop r14
+	pop r13
+	pop r12
+	pop rbp
+	pop rbx
+	
+	ret

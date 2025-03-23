@@ -45,6 +45,8 @@ constexpr InterruptDescriptorAttribute MakeIDTAttr(
 			return attr;
 }
 
+const int kISTForTimer = 1;
+
 void SetIDTEntry(InterruptDescriptor& desc,
 		 InterruptDescriptorAttribute attr,
 		 uint64_t offset,
