@@ -502,6 +502,10 @@ Error Terminal::ExecuteFile(const fat::DirectoryEntry& file_entry, char* command
 	auto entry_addr = elf_header->e_entry;
 	int ret = CallApp(argc.value, argv, 3 << 3 | 3, entry_addr, stack_frame_addr.value + 4096 - 8, &task.OSStackPointer());
 
+	char s[64];
+	sprintf(s, "app exited. ret = %d\n", ret);
+	Print(s);
+
 	const auto addr_first = GetFirstLoadAddress(elf_header);
 	if (auto err = CleanPageMaps(LinearAddress4Level{addr_first})) {
 		return err;

@@ -43,5 +43,5 @@ extern "C" void main(int argc, char** argv) {
 	}
 
 	printf("%d\n", result);
-	SyscallExit(static_cast<int>(result));
+	exit(static_cast<int>(result));
 }

@@ -37,6 +37,8 @@ class LayerManager {
 
 		Layer& NewLayer();
 
+		void RemoveLayer(unsigned int id);
+
 		void Draw(const Rectangle<int>& area) const;
 		void Draw(unsigned int id) const;
 		void Draw(unsigned int id, Rectangle<int> area) const;
