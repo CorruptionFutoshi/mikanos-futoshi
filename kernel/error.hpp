@@ -30,6 +30,7 @@ class Error {
 			kNoSuchTask,
 			kInvalidFormat,
 			kFrameTooSmall,
+			kInvalidFile,
 			kTest1,
 			kTest2,
 			kTest3,
@@ -64,6 +65,7 @@ class Error {
 			"kNoSuchTask",
 			"kInvalidFormat",
 			"kFrameTooSmall",
+			"kInvalidFile",
 			"kTest1",
 			"kTest2",
 			"kTest3"
