@@ -31,6 +31,8 @@ class Error {
 			kInvalidFormat,
 			kFrameTooSmall,
 			kInvalidFile,
+			kIsDirectory,
+			kNoSuchEntry,
 			kTest1,
 			kTest2,
 			kTest3,
@@ -66,6 +68,8 @@ class Error {
 			"kInvalidFormat",
 			"kFrameTooSmall",
 			"kInvalidFile",
+			"kIsDirectory",
+			"kNoSuchEntry",
 			"kTest1",
 			"kTest2",
 			"kTest3"

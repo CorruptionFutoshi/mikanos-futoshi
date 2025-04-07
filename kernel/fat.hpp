@@ -3,6 +3,9 @@
 #include <cstdint>
 #include <cstddef>
 
+#include "error.hpp"
+#include "file.hpp"
+
 namespace fat {
 	struct BPB {
 		uint8_t jump_boot[3];
@@ -90,16 +93,34 @@ namespace fat {
 
 	size_t LoadFile(void* buf, size_t len, const DirectoryEntry& entry);
 
-	class FileDescriptor {
+	bool IsEndOfClusterchain(unsigned long cluster);
+
+	uint32_t* GetFAT();
+
+	unsigned long ExtendCluster(unsigned long eoc_cluster, size_t n);
+
+	DirectoryEntry* AllocateEntry(unsigned long dir_cluster);
+
+	void SetFileName(DirectoryEntry& entry, const char* name);
+
+	WithError<DirectoryEntry*> CreateFile(const char* path);
+
+	unsigned long AllocateClusterChain(size_t n);
+
+	class FileDescriptor : public ::FileDescriptor {
 		public:
 			explicit FileDescriptor(DirectoryEntry& fat_entry);
-			size_t Read(void* buf, size_t len);
+			size_t Read(void* buf, size_t len) override;
+			size_t Write(const void* buf, size_t len) override;
 
 		private:
 			DirectoryEntry& fat_entry_;
 			size_t rd_off_ = 0;
 			unsigned long rd_cluster_ = 0;
 			size_t rd_cluster_off_ = 0;
+			size_t wr_off_ = 0;
+			unsigned long wr_cluster_ = 0;
+			size_t wr_cluster_off_ = 0;
 	};
 }
 
