@@ -13,3 +13,4 @@ OVMF_VARS.fd
 /hankaku.bin
 /html
 /ipxe_root
+.*.un~

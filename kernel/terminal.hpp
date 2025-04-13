@@ -8,6 +8,13 @@
 #include "layer.hpp"
 #include "fat.hpp"
 
+struct AppLoadInfo {
+	uint64_t vaddr_end, entry;
+	PageMapEntry* pml4;
+};
+
+extern std::map<fat::DirectoryEntry*, AppLoadInfo>* app_loads;
+
 class Terminal {
 	public:
 		static const int kRows = 15, kColumns = 60;
@@ -34,7 +41,7 @@ class Terminal {
 		void Scroll1();
 
 		void ExecuteLine();
-		Error ExecuteFile(const fat::DirectoryEntry& file_entry, char* command, char* first_arg);
+		Error ExecuteFile(fat::DirectoryEntry& file_entry, char* command, char* first_arg);
 		void Print(char c);
 
 		std::deque<std::array<char, kLineMax>> cmd_history_{};
@@ -51,6 +58,8 @@ class TerminalFileDescriptor : public FileDescriptor {
 		explicit TerminalFileDescriptor(Task& task, Terminal& term);
 		size_t Read(void* buf, size_t len) override;
 		size_t Write(const void* buf, size_t len) override;
+		size_t Size() const override { return 0; }
+		size_t Load(void* buf, size_t len, size_t offset) override;
 
 	private:
 		Task& task_;

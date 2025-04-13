@@ -66,6 +66,21 @@ SetDSAll:
 	mov gs, di
 	ret
 
+global GetCR0
+GetCR0:
+	mov rax, cr0
+	ret
+
+global SetCR0
+SetCR0:
+	mov cr0, rdi
+	ret
+
+global GetCR2
+GetCR2:
+	mov rax, cr2
+	ret
+
 global SetCR3
 SetCR3:
 	mov cr3, rdi	; cr3 register represent physical address of PML4 table
@@ -318,4 +333,9 @@ ExitApp:
 	pop rbp
 	pop rbx
 	
+	ret
+
+global InvalidateTLB
+InvalidateTLB:
+	invlpg [rdi]
 	ret

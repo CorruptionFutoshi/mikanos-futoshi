@@ -38,6 +38,11 @@ class FrameID {
 // std::numeric_limits<size_t>::max() represent max of size_t. probably about 18 quintillion. 
 static const FrameID kNullFrame{std::numeric_limits<size_t>::max()};
 
+struct MemoryStat {
+	size_t allocated_frames;
+	size_t total_frames;
+};
+
 class BitmapMemoryManager {
 	public:
 		static const auto kMaxPhysicalMemoryBytes{128_GiB};
@@ -54,6 +59,8 @@ class BitmapMemoryManager {
 		void MarkAllocated(FrameID start_frame, size_t num_frames);
 
 		void SetMemoryRange(FrameID range_begin, FrameID range_end);
+
+		MemoryStat Stat() const;
 
 	private:
 		// 1bit as 1 frame. so number of bit of array content affect number of contents. 
