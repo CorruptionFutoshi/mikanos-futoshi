@@ -148,6 +148,7 @@ extern "C" void KernelMainNewStack(const FrameBufferConfig& frame_buffer_config_
 	InitializeInterrupt();
 	
 	fat::Initialize(volume_image);
+	InitializeFont();
 	InitializePCI();
 
 	InitializeLayer();

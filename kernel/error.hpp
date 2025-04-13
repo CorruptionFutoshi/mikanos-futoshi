@@ -33,6 +33,7 @@ class Error {
 			kInvalidFile,
 			kIsDirectory,
 			kNoSuchEntry,
+			kFreeTypeError,
 			kTest1,
 			kTest2,
 			kTest3,
@@ -70,6 +71,7 @@ class Error {
 			"kInvalidFile",
 			"kIsDirectory",
 			"kNoSuchEntry",
+			"kFreeTypeError",
 			"kTest1",
 			"kTest2",
 			"kTest3"
