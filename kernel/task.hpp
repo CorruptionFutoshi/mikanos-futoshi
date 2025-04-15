@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <deque>
+#include <map>
 #include <optional>
 #include <vector>
 
@@ -87,6 +88,8 @@ class TaskManager {
 		Error Wakeup(uint64_t id, int level = -1);
 		Error SendMessage(uint64_t id, const Message& msg);
 		Task& CurrentTask();
+		void Finish(int exit_code);
+		WithError<int> WaitFinish(uint64_t task_id);
 
 	private:
 		// {} with field is set when constructor is called.
@@ -95,6 +98,8 @@ class TaskManager {
 		std::array<std::deque<Task*>, kMaxLevel + 1> running_{};
 		int current_level_{kMaxLevel};
 		bool level_changed_{false};
+		std::map<uint64_t, int> finish_tasks_{};
+		std::map<uint64_t, Task*> finish_waiter_{};
 
 		void ChangeLevelRunning(Task* task, int level);
 		Task* RotateCurrentRunQueue(bool current_sleep);

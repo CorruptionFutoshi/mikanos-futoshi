@@ -2,6 +2,9 @@
 # -e means if error has occur, script is end. -u means if use undefined variable, script is end. 
 #!/bin/sh -eu
 
+APPS_DIR=${APPS_DIR:-apps}
+RESOURCE_DIR=${RESOURCE_DIR:-resource}
+
 # ${MAKE_OPTS: -} means if MAKE_OPTS environmental variable is defined, its value, else empty
 # -C means cd
 make ${MAKE_OPTS: -} -C kernel kernel.elf
